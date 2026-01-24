@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playbook: Comprometimento de Servidor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --dark-blue: #000066; 
+            --red: #cc0000;
+            --orange: #ff8c00;
+            --blue: #0055aa;
+            --green: #008000;
+            --gray-panel: #00001f;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            background-color: var(--dark-blue);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Modal Info */
+        .osi-trigger {
+            position: fixed;
+            left: 20px;
+            top: 25px;
+            background-color: var(--orange);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .osi-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .osi-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 85%;
+            max-width: 650px;
+            color: black;
+            position: relative;
+        }
+
+        /* Layout */
+        .viewport { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; }
+        .header-title { text-align: center; margin-bottom: 20px; text-transform: uppercase; }
+
+        .content-card {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            width: 90%;
+            max-width: 1200px;
+            color: black;
+            display: none; 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            margin-bottom: 50px;
+        }
+        .active { display: block; }
+
+        .img-container { width: 100%; text-align: center; margin-bottom: 20px; background: #eee; border-radius: 4px; padding: 10px 0; }
+        .img-container img { max-width: 100%; border: 1px solid #ddd; }
+
+        .btn-details { display: inline-block; margin: 10px 5px; padding: 12px 25px; background-color: #222; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; }
+        .btn-back { background-color: #666; }
+
+        .extra-info { display: none; margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .info-section { margin-bottom: 25px; }
+        .info-section h3 { border-left: 5px solid var(--dark-blue); padding-left: 10px; color: #333; margin-bottom: 15px; }
+
+        .steps-guide { background: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; }
+        .steps-guide dt { font-weight: 700; color: #222; margin-top: 10px; }
+        .steps-guide dd { margin-bottom: 10px; color: #555; font-size: 0.95em; }
+        
+        .tool-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .tool-table th, .tool-table td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.85em; }
+        .tool-table th { background-color: #f2f2f2; }
+
+        .nav-bar { background-color: var(--gray-panel); display: flex; padding: 10px; gap: 10px; justify-content: center; }
+        .nav-btn { flex: 1; max-width: 180px; padding: 12px 5px; border: none; font-weight: 700; cursor: pointer; font-size: 10px; }
+        
+        .c-1 { background-color: #01579b; color: #ffffff; } 
+        .c-2 { background-color: #f57f17; color: #ffffff; } 
+        .c-3 { background-color: #b71c1c; color: #ffffff; } 
+        .c-4 { background-color: #1b5e20; color: #ffffff; } 
+        .c-5 { background-color: #4a148c; color: #ffffff; }
+        
+        /* Estilos para fluxograma detalhado */
+        .flow-details { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
+        .flow-step { margin: 10px 0; padding: 10px; border-left: 4px solid #0055aa; background: white; }
+        .flow-step.critical { border-left-color: #cc0000; background: #fff5f5; }
+        .flow-step.decision { border-left-color: #ff8c00; background: #fff9e6; }
+        .flow-step.action { border-left-color: #008000; background: #f0fff0; }
+        .step-number { display: inline-block; background: #0055aa; color: white; padding: 2px 8px; border-radius: 3px; margin-right: 10px; font-weight: bold; }
+        .step-number.critical { background: #cc0000; }
+        .step-number.decision { background: #ff8c00; }
+    </style>
+</head>
+<body>
+
+    <div class="osi-trigger" onclick="toggleOSI()"><i class="fas fa-microchip"></i></div>
+
+    <div id="osiModal" class="osi-modal" onclick="toggleOSI()">
+        <div class="osi-content" onclick="event.stopPropagation()">
+            <h3>Coleta de Evidências</h3>
+            <p><strong>Ordem de Volatilidade:</strong> Sempre colete dados na ordem do mais volátil para o menos volátil.</p>
+            <ol>
+                <li>Não desligue o servidor imediatamente (isso apaga a RAM).</li>
+                <li><strong>Documente tudo:</strong> Fotografe a tela e documente o estado físico antes de tocar na máquina.</li>
+                <li><strong>Coleta "Live" (Vivo):</strong> Se o servidor estiver ligado, colete a RAM primeiro.</li>
+                <li><strong>Coleta "Dead" (Morto):</strong> Se o servidor foi desligado, inicie a imagem do disco.</li>
+                <li>Cadeia de Custódia:</strong> Mantenha um registro detalhado de quem, quando e como a evidência foi coletada</li>
+                <li><strong>Hashing:</strong> Após a coleta (especialmente de disco), gere um hash (SHA-256) para garantir a integridade da prova</li>
+                <li>Tabelas de Roteamento, Cache ARP, Tabela de Processos.</li>
+                <li>Sistemas de arquivos temporários</li>
+                <li>Disco Rígido (Logs e arquivos)</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="viewport">
+        <div class="header-title">
+            <h1>Playbook: Comprometimento de Servidor</h1>
+            <p>Guia de Resposta a Incidentes </p>
+        </div>
+
+        <div id="principal" class="content-card active">
+            <h2 style="text-align: center;">FLUXOGRAMA DE DECISÃO</h2>
+            <div class="img-container"><img src="fluxograma geral.jpg"></div>
+            <p style="text-align:center;">Selecione uma fase na barra inferior para detalhes técnicos.</p>
+        </div>
+
+        <div id="fase1" class="content-card">
+            <h2 style="color: var(--blue)">1. CONTENÇÃO E PRESERVAÇÃO</h2>
+            <div class="img-container"><img src="fluxograma 1.jpg"></div>
+            <div style="text-align:center;">
+                <button class="btn-details" onclick="toggleDetails('det1')">AÇÕES TÉCNICAS DETALHADAS ↓</button>
+                <button class="btn-details btn-back" onclick="showPhase('principal')">VOLTAR</button>
+            </div>
+            <div id="det1" class="extra-info">
+                <div class="info-section">
+                    <h3>Fluxo Detalhado de Contenção</h3>
+                    <div class="flow-details">
+                        <div class="flow-step">
+                            <span class="step-number">1.0</span>
+                            <strong>INÍCIO</strong> - Disparador do processo de resposta a incidentes
+                        </div>
+                        
+                        <div class="flow-step action">
+                            <span class="step-number">1.1</span>
+                            <strong>Alerta de Comprometimento de Servidor</strong>
+                            <p>Recebimento de alerta do SIEM, EDR, usuário ou monitoramento proativo indicando possível comprometimento.</p>
+                            <p><em>Verificação inicial: Confirmar se o alerta é legítimo (falso positivo?)</em></p>
+                        </div>
+                        
+                        <div class="flow-step critical">
+                            <span class="step-number critical">1.2</span>
+                            <strong>ISOLAMENTO LÓGICO IMEDIATO</strong>
+                            <p>Ação prioritária para conter a ameaça e evitar propagação:</p>
+                            <ul>
+                                <li>Bloquear no firewall de borda (portas específicas ou todo o tráfego)</li>
+                                <li>Isolar em VLAN/quarentena no switch</li>
+                                <li>Regras de Host-Firewall (iptables/Windows Firewall com regras restritivas)</li>
+                                <li>Manter acesso da equipe de resposta (SSH/RDP apenas de IPs específicos)</li>
+                            </ul>
+                            <p><strong>Objetivo:</strong> Impedir movimentação lateral e comunicação com C2 (Command & Control).</p>
+                        </div>
+                        
+                        <div class="flow-step action">
+                            <span class="step-number">1.3</span>
+                            <strong>Capturar Memória RAM</strong>
+                            <p>Executar imediatamente após isolamento, antes de qualquer reinício:</p>
+                            <table class="tool-table">
+                                <tr><th>Sistema</th><th>Ferramenta</th><th>Comando/Procedimento</th></tr>
+                                <tr><td>Windows</td><td>FTK Imager Lite / DumpIt</td><td>Executar como admin, salvar dump em mídia externa</td></tr>
+                                <tr><td>Linux</td><td>AVML / LiME</td><td><code>sudo avml --output /mnt/externo/memory.dump</code></td></tr>
+                                <tr><td>ESXi</td><td>vmss2core</td><td>Extrair memória da VM suspensa</td></tr>
+                            </table>
+                            <p><strong>Hash MD5/SHA256 do arquivo de dump deve ser registrado para cadeia de custódia.</strong></p>
+                        </div>
+                        
+                        <div class="flow-step action">
+                            <span class="step-number">1.4</span>
+                            <strong>Registro de Sessões</strong>
+                            <p>Documentar estado atual antes de qualquer alteração:</p>
+                            <ul>
+                                <li><strong>Conexões de rede:</strong> <code>netstat -ano</code> (Win) / <code>ss -tulpn</code> (Linux)</li>
+                                <li><strong>Processos em execução:</strong> <code>tasklist /v</code> (Win) / <code>ps auxf</code> (Linux)</li>
+                                <li><strong>Serviços:</strong> <code>sc query</code> (Win) / <code>systemctl list-units</code> (Linux)</li>
+                                <li><strong>Agendadores de tarefa:</strong> Agendador de Tarefas (Win) / Cron (Linux)</li>
+                                <li><strong>Usuários logados:</strong> <code>query user</code> (Win) / <code>who -a</code> (Linux)</li>
+                            </ul>
+                            <p>Salvar saída em arquivo com timestamp: <code>YYYY-MM-DD_HHMM_servidor_processos.txt</code></p>
+                        </div>
+                        
+                        <div class="flow-step action">
+                            <span class="step-number">1.5</span>
+                            <strong>Monitoramento de Conexões</strong>
+                            <p>Configurar captura contínua para detectar tentativas de reconexão:</p>
+                            <ul>
+                                <li><strong>tcpdump/Wireshark:</strong> <code>tcpdump -i any -w /mnt/externo/captura.pcap</code></li>
+                                <li><strong>NetFlow/sFlow:</strong> Habilitar exportação para coletor</li>
+                                <li><strong>EDR:</strong> Manter agente ativo para telemetria contínua</li>
+                            </ul>
+                            <p>Isso permite identificar portas de backdoor e IPs de C2 ainda ativos.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-section">
+                    <h3>Checklist de Preservação Forense</h3>
+                    <dl class="steps-guide">
+                        <dt>✓ Chain of Custody (Cadeia de Custódia)</dt>
+                        <dd>Documentar TODAS as ações: Quem, quando, o que fez, com qual ferramenta.</dd>
+                        
+                        <dt>✓ Hash de Evidências</dt>
+                        <dd>Calcular MD5/SHA256 de todos os arquivos coletados antes de movê-los.</dd>
+                        
+                        <dt>✓ Mídia Limpa</dt>
+                        <dd>Usar mídia externa NOVA/formatada para armazenar evidências.</dd>
+                        
+                        <dt>✓ Fuso Horário</dt>
+                        <dd>Registrar timezone do servidor e usar UTC em logs da investigação.</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div id="fase2" class="content-card">
+            <h2 style="color: var(--orange)">2. ANÁLISE E DECISÃO</h2>
+            <div class="img-container"><img src="fluxograma 2.jpg"></div>
+            <div style="text-align:center;">
+                <button class="btn-details" onclick="toggleDetails('det2')">ÁRVORE DE DECISÃO DETALHADA ↓</button>
+                <button class="btn-details btn-back" onclick="showPhase('principal')">VOLTAR</button>
+            </div>
+            <div id="det2" class="extra-info">
+                <div class="info-section">
+                    <h3>Fluxo de Análise e Decisão Crítica</h3>
+                    <div class="flow-details">
+                        <div class="flow-step decision">
+                            <span class="step-number decision">2.1</span>
+                            <strong>Avaliar custo do bloqueio vs dano do malware</strong>
+                            <p><strong>Análise de Impacto ao Negócio:</strong></p>
+                            <ul>
+                                <li><strong>Servidor Crítico?</strong> (ERP, banco de dados, autenticação)</li>
+                                <li><strong>Disponibilidade vs Segurança:</strong> Quanto custa cada hora de downtime?</li>
+                                <li><strong>Horário do ataque:</strong> Horário comercial vs fim de semana</li>
+                                <li><strong>Contratos SLA:</strong> Penalidades por indisponibilidade</li>
+                            </ul>
+                            <p><strong>Decisão:</strong> Se custo do bloqueio &lt; dano potencial → Prosseguir com contenção agressiva.</p>
+                        </div>
+                        
+                        <div class="flow-step critical">
+                            <span class="step-number critical">2.2</span>
+                            <strong>Risco de Propagação Imediata?</strong>
+                            <p><strong>Indicadores de propagação:</strong></p>
+                            <ul>
+                                <li>Malware do tipo worm (ex: WannaCry, NotPetya)</li>
+                                <li>Credenciais de domínio encontradas no servidor</li>
+                                <li>Conexões ativas para outros servidores internos</li>
+                                <li>Arquivos em shares de rede acessíveis</li>
+                            </ul>
+                            <p><strong>Ações de verificação:</strong></p>
+                            <table class="tool-table">
+                                <tr><th>Técnica</th><th>Ferramenta/Comando</th><th>O que verificar</th></tr>
+                                <tr><td>Busca por IOCs</td><td>EDR Query, SIEM Search</td><td>Mesmo hash/IP em outros sistemas</td></tr>
+                                <tr><td>Logs de Autenticação</td><td>Event ID 4624/4625 (Win)<br>auth.log (Linux)</td><td>Tentativas do servidor para outros sistemas</td></tr>
+                                <tr><td>Scan de Rede Interna</td><td>Nmap, Nessus</td><td>Portas abertas anormais em outros hosts</td></tr>
+                            </table>
+                            
+                            <div class="flow-step" style="margin-left: 20px; margin-top: 10px; border-left: 3px dashed #666;">
+                                <p><strong>Se RISCO ALTO de propagação:</strong></p>
+                                <p>→ Isolar imediatamente a rede/segmento afetado</p>
+                                <p>→ Alertar toda a equipe de segurança</p>
+                                <p>→ Considerar declarar incidente de segurança de nível 1</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flow-step action">
+                            <span class="step-number">2.3</span>
+                            <strong>Contatar responsável pelo Servidor</strong>
+                            <p><strong>Comunicação estruturada:</strong></p>
+                            <ul>
+                                <li><strong>Proprietário do sistema:</strong> Quem gerencia a aplicação/serviço?</li>
+                                <li><strong>Equipe de infraestrutura:</strong> Virtualização, storage, backup</li>
+                                <li><strong>Compliance/Risco:</strong> Necessidades de regulatórias (LGPD, PCI DSS)</li>
+                            </ul>
+                            <p><strong>Informações a fornecer:</strong></p>
+                            <ol>
+                                <li>Natureza do incidente (suspeita de comprometimento)</li>
+                                <li>Evidências encontradas até o momento</li>
+                                <li>Impacto operacional estimado</li>
+                                <li>Tempo estimado de indisponibilidade</li>
+                                <li>Plano de ação proposto</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="flow-step action">
+                            <span class="step-number">2.4</span>
+                            <strong>Aguardar resolução e feedback DSInf</strong>
+                            <p><strong>Enquanto aguarda decisão do proprietário:</strong></p>
+                            <ul>
+                                <li>Continuar análise forense (análise de memória, logs)</li>
+                                <li>Preparar plano de erradicação (se for mantido online)</li>
+                                <li>Preparar imagem limpa para restore (se for mantido offline)</li>
+                                <li>Documentar todas as descobertas para report</li>
+                            </ul>
+                            <p><strong>Prazo máximo:</strong> Estabelecer tempo limite para decisão (ex: 2 horas)</p>
+                        </div>
+                        
+                        <div class="flow-step decision">
+                            <span class="step-number decision">DECISÃO FINAL</span>
+                            <strong>Árvore de Decisão: Manter Online vs Offline</strong>
+                            <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                                <div style="flex: 1; min-width: 250px; padding: 10px; background: #e6f7ff; border-radius: 5px;">
+                                    <h4 style="color: #0055aa;">MANTER OFFLINE (RECOMENDADO)</h4>
+                                    <p><strong>Quando escolher:</strong></p>
+                                    <ul>
+                                        <li>Evidência clara de comprometimento</li>
+                                        <li>Backdoor/Rootkit identificado</li>
+                                        <li>Servidor NÃO-CRÍTICO</li>
+                                        <li>Disponibilidade de backup recente</li>
+                                        <li>Risco regulatório alto (dados sensíveis)</li>
+                                    </ul>
+                                    <p><strong>Próximo passo:</strong> → Fase 3 (Erradicação com wipe/reinstall)</p>
+                                </div>
+                                
+                                <div style="flex: 1; min-width: 250px; padding: 10px; background: #fff7e6; border-radius: 5px;">
+                                    <h4 style="color: #ff8c00;">MANTER ONLINE (EXCEÇÃO)</h4>
+                                    <p><strong>Quando escolher:</strong></p>
+                                    <ul>
+                                        <li>Servidor CRÍTICO (dowtime inaceitável)</li>
+                                        <li>Comprometimento limitado/contido</li>
+                                        <li>Capacidade de remover malware sem reboot</li>
+                                        <li>Monitoramento avançado implementado</li>
+                                        <li>Aceitação formal de risco pela diretoria</li>
+                                    </ul>
+                                    <p><strong>Próximo passo:</strong> → Remoção dirigida + monitoramento intensivo</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-section">
+                    <h3>Matriz de Decisão Rápida</h3>
+                    <table class="tool-table">
+                        <tr><th>Cenário</th><th>Recomendação</th><th>Justificativa</th></tr>
+                        <tr><td>Ransomware ativo</td><td>OFFLINE IMEDIATO</td><td>Prevenir criptografia de backups/arquivos</td></tr>
+                        <tr><td>Backdoor com C2 ativo</td><td>OFFLINE</td><td>Interromper exfiltração de dados</td></tr>
+                        <tr><td>Servidor web defacement</td><td>ONLINE (se isolado)</td><td>Permitir análise do vetor de ataque</td></tr>
+                        <tr><td>Servidor de banco de dados crítico</td><td>ONLINE (com contenção)</td><td>Minimizar impacto operacional</td></tr>
+                        <tr><td>IOC de APT (Ameaça Persistente Avançada)</td><td>OFFLINE</td><td>Preservar evidências para análise forense aprofundada</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fases 3, 4 e 5 mantidas conforme seu código original -->
+        <div id="fase3" class="content-card">
+            <h2 style="color: var(--red)">3. ERRADICAÇÃO E RECUPERAÇÃO</h2>
+            <div class="img-container"><img src="fluxograma 3.jpg"></div>
+            <div style="text-align:center;">
+                <button class="btn-details" onclick="toggleDetails('det3')">MITIGAÇÃO ↓</button>
+                <button class="btn-details btn-back" onclick="showPhase('principal')">VOLTAR</button>
+            </div>
+            <div id="det3" class="extra-info">
+                <div class="info-section">
+                    <h3>Remediação de Ameaças</h3>
+                    <dl class="steps-guide">
+                        <dt>3.2 Reforçar Alertas</dt>
+                        <dd>Criar regras específicas no SIEM para os indicadores de comprometimento (IOCs) encontrados.</dd>
+                        <dt>3.5 Reintegrar ou Isolar</dt>
+                        <dd>Se houver persistência (ex: Rootkit), a recomendação é o <em>Wipe & Reinstall</em> (formatação).</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div id="fase4" class="content-card">
+            <h2 style="color: var(--green)">4. RECUPERAÇÃO E CONFORMIDADE</h2>
+            <div class="img-container"><img src="fluxograma 4.jpg"></div>
+            <div style="text-align:center;">
+                <button class="btn-details" onclick="toggleDetails('det4')">VALIDAÇÃO DE SEGURANÇA ↓</button>
+                <button class="btn-details btn-back" onclick="showPhase('principal')">VOLTAR</button>
+            </div>
+            <div id="det4" class="extra-info">
+                <div class="info-section">
+                    <h3>4.1 Validar Reintegração Segura</h3>
+                    <p>Antes de colocar o servidor em produção total:</p>
+                    <ul>
+                        <li><strong>Monitoramento de Integridade (FIM):</strong> Verificar se arquivos do sistema foram alterados.</li>
+                        <li><strong>Scan de Vulnerabilidades:</strong> Garantir que o vetor de entrada original foi corrigido (Patching).</li>
+                        <li><strong>Análise de Logs:</strong> Observar por 24h tentativas de reconexão de C2.</li>
+                    </ul>
+                    <table class="tool-table">
+                        <tr><th>Ferramenta</th><th>Objetivo</th></tr>
+                        <tr><td><strong>Nessus / OpenVAS</strong></td><td>Varredura de vulnerabilidades pós-incidente.</td></tr>
+                        <tr><td><strong>Wazuh</strong></td><td>Monitoramento de integridade de arquivos e logs.</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="fase5" class="content-card">
+            <h2 style="color: #4a148c">5. ATIVIDADES PÓS-INCIDENTE</h2>
+            <div class="img-container"><img src="fluxograma 5.jpg"></div>
+            <div style="text-align:center;">
+                <button class="btn-details" onclick="toggleDetails('det5')">MELHORIA ↓</button>
+                <button class="btn-details btn-back" onclick="showPhase('principal')">VOLTAR</button>
+            </div>
+            <div id="det5" class="extra-info">
+                <div class="info-section">
+                    <h3>Lições Aprendidas e Relatórios</h3>
+                    <dl class="steps-guide">
+                        <dt>5.1 Documentação</dt>
+                        <dd>Registrar a linha do tempo (Timeline), causa raiz e eficácia da contenção.</dd>
+                        <dt>5.4 Métricas e Indicadores</dt>
+                        <dd>MTTD (Tempo médio de detecção) e MTTR (Tempo médio de resposta/recuperação).</dd>
+                    </dl>
+                    <p><strong>Ação de Longo Prazo:</strong> Revisar políticas de privilégio mínimo (Least Privilege) e segmentação de rede.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="nav-bar">
+        <button class="nav-btn c-1" onclick="showPhase('fase1')">1. CONTENÇÃO</button>
+        <button class="nav-btn c-2" onclick="showPhase('fase2')">2. ANÁLISE</button>
+        <button class="nav-btn c-3" onclick="showPhase('fase3')">3. ERRADICAÇÃO</button>
+        <button class="nav-btn c-4" onclick="showPhase('fase4')">4. RECUPERAÇÃO</button>
+        <button class="nav-btn c-5" onclick="showPhase('fase5')">5. PÓS-INCIDENTE</button>
+    </div>
+
+    <script>
+        function showPhase(id) {
+            document.querySelectorAll('.content-card').forEach(c => c.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelector('.viewport').scrollTop = 0;
+            // Fechar todos os detalhes ao mudar de fase
+            document.querySelectorAll('.extra-info').forEach(el => el.style.display = 'none');
+        }
+        
+        function toggleDetails(id) {
+            const el = document.getElementById(id);
+            el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+            if(el.style.display === 'block') {
+                el.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        
+        function toggleOSI() {
+            const modal = document.getElementById("osiModal");
+            modal.style.display = (modal.style.display === "flex") ? "none" : "flex";
+        }
+        
+        // Fechar modal com ESC
+        document.addEventListener('keydown', function(e) {
+            if(e.key === 'Escape') {
+                document.getElementById("osiModal").style.display = "none";
+            }
+        });
+    </script>
+</body>
+</html>
