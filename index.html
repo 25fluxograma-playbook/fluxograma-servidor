@@ -3,16 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Playbook de Resposta a Incidentes - NIST</title>
+    <title>Tratamento de Incidentes de Segurança - Comprometimento de Servidores</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Bibliotecas para geração de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         :root {
-            --dark-blue: #000033; 
-            --nist-prep-det: #FF8000; /* Laranja conforme fluxograma */
-            --nist-contain-err: #FF4444; /* Vermelho conforme fluxograma */
-            --nist-recover-post: #4869D1; /* Azul conforme fluxograma */
-            --gray-panel: #0a0a2a;
+            --dark-blue: #000066; 
+            --red: #E0493E;
+            --orange: #DB832B;
+            --blue: #6666FF;
+            --green: #28CC28;
+            --purple: #8A2BE2;
+            --gray-panel: #00001f;
+            --table: #0d234f;
+            --yellow: #FFC107;
+            --dark-red:#da0505;
         }
 
         body {
@@ -20,247 +28,2108 @@
             margin: 0;
             background-color: var(--dark-blue);
             color: white;
-            display: flex;
+            display: flex; 
             flex-direction: column;
-            height: 100vh;
+            height: 100vh; 
             overflow: hidden;
         }
 
-        .menu-btn { position: fixed; top: 25px; right: 25px; font-size: 28px; cursor: pointer; z-index: 1000; }
-        .side-menu { height: 100%; width: 0; position: fixed; z-index: 999; top: 0; right: 0; background-color: #00001f; overflow-x: hidden; transition: 0.4s; padding-top: 60px; }
-        .side-menu a { padding: 15px 30px; text-decoration: none; font-size: 18px; color: #ccc; display: block; }
+        /* Menu Hamburguer para PDF */
+        .pdf-menu {
+            position: fixed;
+            right: 20px;
+            top: 25px;
+            z-index: 1000;
+        }
 
-        .viewport { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; }
-        .header-title { text-align: center; margin-bottom: 20px; text-transform: uppercase; }
+        .pdf-toggle {
+            background-color: var(--red);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: 0.3s;
+            border: none;
+        }
 
-        .content-card {
+        .pdf-toggle:hover {
+            transform: scale(1.1);
+            background-color: var(--orange);
+        }
+
+        .pdf-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 60px;
             background: white;
             border-radius: 8px;
+            min-width: 200px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            z-index: 1001;
+        }
+
+        .pdf-dropdown.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .pdf-item {
+            display: block;
+            padding: 15px 20px;
+            color: #333;
+            text-decoration: none;
+            border-bottom: 1px solid #eee;
+            transition: 0.3s;
+            font-weight: 500;
+        }
+
+        .pdf-item:hover {
+            background-color: #f5f5f5;
+            color: var(--dark-blue);
+        }
+
+        .pdf-item i {
+            margin-right: 10px;
+            color: var(--red);
+        }
+
+        /* Botão de voltar */
+        .back-btn {
+            position: fixed;
+            left: 90px;
+            top: 25px;
+            background-color: var(--orange);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: 0.3s;
+            border: none;
+            z-index: 1000;
+            display: none; /* Inicialmente escondido */
+        }
+
+        .back-btn:hover {
+            transform: scale(1.1);
+            background-color: var(--green);
+        }
+
+        .back-btn.show {
+            display: flex;
+        }
+
+        /* OSI Modal e Trigger */
+        .osi-trigger {
+            position: fixed; 
+            left: 20px; 
+            top: 25px;
+            background-color: var(--blue); 
+            color: white;
+            width: 50px; 
+            height: 50px; 
+            border-radius: 50%;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-size: 24px; 
+            cursor: pointer; 
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            transition: 0.3s;
+            border: none;
+        }
+        .osi-trigger:hover { 
+            transform: scale(1.1); 
+            background-color: var(--orange); 
+        }
+
+        .osi-modal {
+            display: none; 
+            position: fixed; 
+            z-index: 2000;
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            justify-content: center; 
+            align-items: center;
+        }
+        .osi-content {
+            background: white; 
+            padding: 25px; 
+            border-radius: 8px;
+            width: 85%; 
+            max-width: 900px; 
+            max-height: 90%;
+            text-align: center; 
+            position: relative; 
+            overflow-y: auto; 
+            color: black;
+        }
+        .osi-content img { 
+            max-width: 100%; 
+            border-radius: 4px; 
+            margin-bottom: 20px; 
+        }
+        .osi-description { 
+            text-align: left; 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-left: 5px solid var(--blue); 
+        }
+
+        /* Navegação e Cards */
+        .viewport { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 20px; 
+            overflow-y: auto; 
+            margin-top: 20px;
+        }
+        .content-card {
+            background: white; 
+            border-radius: 8px; 
             padding: 30px;
-            width: 90%;
-            max-width: 1200px;
+            width: 90%; 
+            max-width: 1200px; 
             color: black;
             display: none; 
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
             margin-bottom: 50px;
         }
-
-        .active { display: block; }
-
-        .img-container { width: 100%; text-align: center; margin-bottom: 20px; background: #f4f4f4; border-radius: 5px; padding: 10px; }
-        .img-container img { max-width: 100%; height: auto; border: 1px solid #ddd; }
-
-        .btn-details {
-            display: block; margin: 20px auto; padding: 15px 40px;
-            background-color: #c2c2c2; color: rgb(0, 0, 0); border: none;
-            border-radius: 5px; cursor: pointer; font-weight: 700;
-            text-transform: uppercase;
+        .active { 
+            display: block; 
+            animation: fadeIn 0.5s ease;
         }
 
-        .extra-info { display: none; margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; animation: fadeIn 0.5s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .info-section h3 { border-left: 5px solid var(--dark-blue); padding-left: 10px; color: #333; }
-
-        .mitigation-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
-        .tool-badge { background: #000033; border: 3px solid #023b97; padding: 6px 12px; border-radius: 15px; font-size: 0.85em; color: #ffffff; font-weight: 500; }
-
-        .steps-guide dt { font-weight: 700; color: #000033; margin-top: 10px; }
-        .steps-guide dd { margin-bottom: 10px; margin-left: 20px; font-size: 0.95em; color: #555; }
-
-        .nav-bar { background-color: var(--gray-panel); display: flex; padding: 10px; gap: 5px; overflow-x: auto; }
-        .nav-btn { flex: 1; min-width: 110px; padding: 12px 5px; border: none; font-weight: 700; cursor: pointer; font-size: 11px; transition: 0.3s; color: white; border-radius: 4px; }
+        .nav-bar { 
+            background-color: var(--gray-panel); 
+            display: flex; 
+            padding: 10px; 
+            gap: 5px; 
+            justify-content: center; 
+            border-top: 2px solid #00001f; 
+            position: relative;
+            z-index: 999;
+        }
+        .nav-btn { 
+            flex: 1; 
+            max-width: 160px; 
+            padding: 12px 2px; 
+            border: none; 
+            font-weight: 700; 
+            cursor: pointer; 
+            font-size: 9px; 
+            text-transform: uppercase; 
+            color: white; 
+            transition: 0.3s; 
+        }
         
-        .c-preparacao { background-color: #d35400; }
-        .c-deteccao { background-color: #d35400; }
-        .c-contencao { background-color: #D95141; }
-        .c-erradicacao { background-color: #D95141; }
-        .c-recuperacao { background-color: #4869D1; }
-        .c-pos { background-color: #4869D1; }
+        /* Cores das Fases */
+        .c1 { background-color: var(--green); }
+        .c2 { background-color: var(--orange); }
+        .c3 { background-color: var(--red); }
+        .c4 { background-color: #E0493E; }
+        .c5 { background-color: var(--blue);}
+        .c6 { background-color: var(--blue); }
+        .c7 { background-color: var(--blue);}
+        
 
-        .badge-servidor { background: #f1c40f; color: black; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
+        .img-container { 
+            width: 100%; 
+            text-align: center; 
+            margin-bottom: 20px; 
+            background: #eee; 
+            padding: 10px 0; 
+        }
+        .img-container img { 
+            max-width: 100%; 
+            height: auto; 
+        }
+        
+        .btn-details { 
+            padding: 10px 20px; 
+            background: #222; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 10px 5px; 
+            font-weight: bold; 
+            transition: 0.3s;
+        }
+        .btn-details:hover {
+            background-color: var(--dark-blue);
+        }
+        
+        .extra-info { 
+            display: none; 
+            margin-top: 20px; 
+            border-top: 2px solid #eee; 
+            padding-top: 15px; 
+            text-align: left; 
+        }
+        
+        /* ESTILOS PARA TABELAS */
+        .tabela-evidencias {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            font-size: 0.95em;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .tabela-evidencias thead tr {
+            background: linear-gradient(135deg, var(--table), #555550);
+            color: white;
+        }
+        
+        .tabela-evidencias th {
+            padding: 18px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1em;
+            border: none;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .tabela-evidencias tbody tr {
+            border-bottom: 1px solid #e0e0e0;
+            transition: all 0.2s ease;
+        }
+        
+        .tabela-evidencias tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .tabela-evidencias tbody tr:hover {
+            background-color: #e8f4ff;
+            transform: translateY(-2px);
+        }
+        
+        .tabela-evidencias td {
+            padding: 16px 15px;
+            vertical-align: top;
+            border: none;
+        }
+        
+        .tabela-evidencias td:first-child {
+            font-weight: 600;
+            color: var(--dark-blue);
+            border-right: 2px solid #e0e0e0;
+        }
+        
+        .tabela-evidencias td:last-child {
+            color: #909190;
+            font-style: italic;
+        }
+        
+        .destaque-tabela {
+            background-color: #fff8e1;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 5px;
+            border-left: 4px solid #ffb300;
+        }
+        
+        @keyframes fadeIn { 
+            from { 
+                opacity: 0; 
+                transform: translateY(10px); 
+            } 
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            } 
+        }
+
+        /* Títulos das fases */
+        .phase-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        h2 {
+            margin: 0;
+        }
+        
+        /* Responsividade para tabelas */
+        @media (max-width: 768px) {
+            .tabela-evidencias {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            
+            .tabela-evidencias th,
+            .tabela-evidencias td {
+                min-width: 200px;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <div class="menu-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></div>
+    <div class="osi-trigger" onclick="toggleOSI()"><i class="fas fa-layer-group"></i></div>
+    
+    <!-- Botão de voltar -->
+    <button class="back-btn" onclick="showPrincipal()" id="backButton">
+        <i class="fas fa-arrow-left"></i>
+    </button>
 
-    <div id="sideMenu" class="side-menu">
-        <a href="#" onclick="showPhase('principal')"><i class="fas fa-home"></i> Início</a>
-        <a href="#"><i class="fas fa-download"></i> Baixar Playbook PDF</a>
+    <!-- Menu Hamburguer para PDF -->
+    <div class="pdf-menu">
+        <button class="pdf-toggle" onclick="togglePDFMenu()">
+            <i class="fas fa-file-pdf"></i>
+        </button>
+        <div class="pdf-dropdown" id="pdfDropdown">
+            <a href="#" class="pdf-item" onclick="downloadPDF('fase1')">
+                <i class="fas fa-download"></i> Preparação
+            </a>
+            <a href="#" class="pdf-item" onclick="downloadPDF('fase2')">
+                <i class="fas fa-download"></i> Detecção
+            </a>
+            <a href="#" class="pdf-item" onclick="downloadPDF('fase3')">
+                <i class="fas fa-download"></i> Análise
+            </a>
+            <a href="#" class="pdf-item" onclick="downloadPDF('fase4')">
+                <i class="fas fa-download"></i> Contenção
+            </a>
+            <a href="#" class="pdf-item" onclick="downloadPDF('fase5')">
+                <i class="fas fa-download"></i> Erradicação
+            </a>
+            <a href="#" class="pdf-item" onclick="downloadPDF('fase6')">
+                <i class="fas fa-download"></i> Recuperação
+            </a>
+            <a href="#" class="pdf-item" onclick="downloadPDF('fase7')">
+                <i class="fas fa-download"></i> Pós-Incidente
+            </a>
+            <a href="#" class="pdf-item" onclick="downloadPDF('completo')">
+                <i class="fas fa-download"></i> Guia Completo
+            </a>
+        </div>
+    </div>
+
+    <div id="osiModal" class="osi-modal" onclick="toggleOSI()">
+        <div class="osi-content" onclick="event.stopPropagation()">
+            <h2>Modelo OSI e Vetores de Ataques</h2>
+            <img src="camadaosi.jpg" alt="Camadas OSI">
+            <div class="osi-description">
+                <strong>Camadas Críticas:</strong>
+                <ul>
+                    <li>Ataques de Camada 7</li>
+                    <p>O <strong>HTTP Flood</strong> é um ataque DDoS que visa esgotar os recursos do servidor web enviando um grande volume de requisições HTTP aparentemente legítimas. Diferente de ataques volumétricos, ele não necessita de grande largura de banda, mas sim de capacidade computacional para processar cada requisição.</p>
+                    
+                    <p>Um HTTP Flood é um ataque DDoS de Camada 7 (aplicação) que inunda servidores web com solicitações GET ou POST legítimas, consumindo recursos como CPU e memória para tornar sites indisponíveis. Por parecerem tráfego normal, são difíceis de detectar, frequentemente usando botnets para maximizar o impacto.</p>
+                    <dt><strong>Como Ataca:</strong></dt>
+                    <ul>
+                        <li>Botnets distribuídos enviam requisições HTTP GET ou POST simultaneamente</li>
+                        <li>Cada requisição é completa e válida, tornando difícil a distinção de tráfego normal</li>
+                        <li>Explora a lógica da aplicação, como buscas complexas ou uploads de arquivos</li>
+                        <li>Pode utilizar proxies ou TOR para mascarar origens</li>
+                        <li>Foca em endpoints específicos que consomem muitos recursos (ex: /search, /login)</li>
+                    </ul>
+                    <p>O <strong>Slowloris</strong> mantém o máximo de conexões abertas possível enviando requisições HTTP incompletas, consumindo todos os slots disponíveis no servidor web e impedindo conexões legítimas.</p>
+                    <ul>
+                        <li>Estabelece conexões HTTP normais com o servidor</li>
+                        <li>Envia headers parcialmente, mantendo a conexão aberta</li>
+                        <li>Periodicamente envia caracteres para evitar timeouts</li>
+                        <li>Cada conexão consome um slot no servidor (ex: Apache mantém 256 conexões)</li>
+                        <li>Com poucos recursos (1 máquina) pode derrubar servidores</li>
+                    </ul>
+                    <br>
+                    <li>Ataques de Camada 4 (Transporte)</li>
+                    <p>O <strong>SYN Flood</strong> explora o handshake de três vias do TCP enviando múltiplos pacotes SYN sem completar as conexões, preenchendo a tabela de conexões do servidor.</p>
+                    <dt><strong>Como Ataca:</strong></dt>
+                    <ul>
+                        <li>Envia pacotes SYN com IPs falsificados (spoofed)</li>
+                        <li>Servidor responde com SYN-ACK e aguarda ACK final</li>
+                        <li>Nunca envia ACK final, deixando conexão em SYN_RECEIVED</li>
+                        <li>Cada conexão pendente consome memória (ex: 256 bytes cada)</li>
+                        <li>Rápico esgotamento da tabela de conexões (ex: 65K slots)</li>
+                    </ul>
+                    <p>O <strong>UDP Flood</strong> envia massivamente pacotes UDP para portas aleatórias, forçando o servidor a processar cada pacote e responder com "Port Unreachable".</p>
+                    <dt><strong>Como Ataca:</strong></dt>
+                    <ul>
+                        <li>Gera pacotes UDP de tamanho variável (64-1500 bytes)</li>
+                        <li>Direciona para portas aleatórias ou específicas (DNS:53, NTP:123)</li>
+                        <li>IP fonte spoofed para dificultar bloqueio</li>
+                        <li>Consome largura de banda e CPU do servidor</li>
+                        <li>Pode ser amplificado usando serviços abertos</li>
+                    </ul>
+                    <br>
+                    <li>Ataques de Camada 3</li>
+                    <p>O <strong>ICMP Flood (Smurf/Ping Flood)</strong> faz um ataque volumétrico que envia pacotes ICMP Echo Request em massa, congestionando a conexão da vítima.</p>
+                    <dt><strong>Como Ataca:</strong></dt>
+                    <p><strong>Smurf Attack</strong>: Usa broadcast IP com IP spoofed da vítima</p>
+                    <ul>
+                        <li>Envia ping para endereço de broadcast (ex: 192.168.1.255)</li>
+                        <li>Todos os hosts respondem para a vítima</li>
+                        <li>Amplificação significativa</li>
+                    </ul>
+                    <p><strong>Ping Flood Direto</strong></p>
+                    <ul>
+                        <li>Botnet envia ICMP diretamente para vítima</li>
+                        <li>Alto volume (100k+ pacotes/segundo)</li>
+                        <li>Consome toda banda disponível</li>
+                    </ul>
+                    <p><strong>Ping of Death (histórico)</strong></p>
+                    <ul>
+                        <li>Pacotes ICMP > 65.535 bytes</li>
+                        <li>Causava buffer overflow em sistemas antigos</li>
+                    </ul>
+                </ul>
+            </div>
+        </div>
     </div>
 
     <div class="viewport">
-        <div class="header-title">
-            <h1>Comprometimento de Servidores</h1>
-            <p>Baseado em  NIST SP 800-61</p>
-        </div>
-
+        <h1 style="text-align: center;">Tratamento de Incidente de Segurança</h1>
+        <p style="text-align: center; margin-top: -10px;">COMPROMETIMENTO DE SERVIDORES </p>
+        
         <div id="principal" class="content-card active">
-            <h2 style="text-align: center;">FLUXOGRAMA DE DECISÃO</h2>
-            <div class="img-container"><img src="fluxograma.jpg" alt="Fluxograma Completo"></div>
-            <p style="text-align: center;">Selecione uma fase abaixo para detalhamento técnico e ferramentas.</p>
+            <div class="phase-title">
+                <h2 style="color: var(--dark-blue)">Visão Geral - Comprometimento de Servidores</h2>
+            </div>
+            <div class="img-container">
+                <img src="Servidor.png" alt="Fluxograma Base">
+            </div>
+            
+            <div style="background-color: #f0f8ff; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                <h3 style="color: var(--dark-blue)">Contexto da UFRGS</h3>
+                <p>O comprometimento de um servidor é particularmente perigoso porque fere a integridade e a confidencialidade dos dados institucionais. Quando um servidor da UFRGS é invadido ou controlado por um agente malicioso, o risco inclui:</p>
+                <ul>
+                    <li><strong>Exfiltração de dados sensíveis</strong> (pessoais, acadêmicos e financeiros)</li>
+                    <li><strong>Manipulação de registros oficiais</strong> no SEI (Sistema Eletrônico de Informações)</li>
+                    <li><strong>Uso da infraestrutura da Universidade</strong> como base para novos ataques (movimentação lateral)</li>
+                    <li><strong>Comprometimento da fidedignidade</strong> das informações acadêmicas</li>
+                </ul>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 30px;">
+                <div style="background-color: #fff5f5; padding: 20px; border-radius: 8px; border-left: 4px solid var(--red);">
+                    <h4 style="color: var(--red);">Serviços Críticos Sob Ameaça</h4>
+                    <ul>
+                        <li><strong>Sistemas de Gestão (CPD):</strong> SEI, Portal de Serviços</li>
+                        <li><strong>Ensino e Aprendizagem:</strong> Moodle Acadêmico, Mconf</li>
+                        <li><strong>Conectividade e Infraestrutura:</strong> Eduroam/LDAP, DNS</li>
+                    </ul>
+                </div>
+                
+                <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; border-left: 4px solid var(--green);">
+                    <h4 style="color: var(--green);">Objetivos do Playbook</h4>
+                    <ul>
+                        <li>Identificação e Detecção de acessos não autorizados</li>
+                        <li>Contenção e Erradicação rápida</li>
+                        <li>Preservação Forense de evidências</li>
+                        <li>Recuperação e Resiliência dos serviços</li>
+                        <li>Aprimoramento Contínuo das defesas</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <p style="text-align: center; font-size: 1.1em; margin-top: 30px;">
+                Selecione uma fase abaixo para ver os detalhes do procedimento de tratamento de incidentes de comprometimento de servidores.
+            </p>
         </div>
 
         <div id="fase1" class="content-card">
-            <h2 style="color: #d35400">1. PREPARAÇÃO</h2>
-            <p style="color:#000000"; font-size: 10px>É o alicerce que determina o sucesso ou fracasso da resposta.
-Serve para estabelecer políticas, treinar equipes, configurar ferramentas e definir procedimentos ANTES que incidentes aconteçam. Representa a capacidade proativa da organização de lidar com crises, reduzindo tempo de resposta e aumentando eficácia quando o inevitável ocorrer.</p>
-            <div class="img-container"><img src="preparacao.jpg" alt="Preparacao"></div>
-            <div class="mitigation-tools">
-                <span class="tool-badge">Asset Inventory (GLPI/ServiceNow)</span>
-                <span class="tool-badge">SIEM (Splunk/Sentinel)</span>
-                <span class="tool-badge">Veeam Backup</span>
+            <div class="phase-title">
+                <h2 style="color: var(--green)">Fase 1: Preparação</h2>
             </div>
-            <button class="btn-details" onclick="toggleDetails('det1')">AÇÕES DE PRONTIDÃO ↓</button>
-            <div id="det1" class="extra-info">
-                <dl class="steps-guide">
-                    <dt>1.1 Inventário de Servidores</dt><dd>Saber exatamente quais servidores existem, onde estão, o que fazem e quem é responsável. Sem inventário, você não sabe o que proteger.</dd>
-                    <dt>1.2 Monitoramento ativo SIEM/EDR</dt><dd>Detectar anomalias em tempo real. SIEM (Security Information and Event Management) correlaciona logs; EDR (Endpoint Detection and Response) monitora comportamento suspeito em endpoints.</dd>
-                    <dt>1.3 Políticas de Backup</dt><dd>Garantir a regra 3-2-1 de backups e testes de restauração.</dd>
-                    <dt>1.4 Playbooks</dt><dd>Manter roteiros técnicos para tipos específicos de ataques.</dd>
-                    <dt>1.5 Comunicação</dt><dd>Saber quem avisar, quando e como. Inclui equipe técnica, jurídica, comunicação externa, etc.</dd>
-                </dl>
+            <p>A preparação foca no <strong>Hardening (fortalecimento) dos ativos</strong> e na <strong>redução da superfície de ataque</strong>. O objetivo é garantir a integridade e confidencialidade dos dados críticos da UFRGS, minimizando riscos de exfiltração e sequestro de dados (Ransomware).</p>
+            
+            <button class="btn-details" onclick="toggleDetails('d1')">VER PROCEDIMENTOS ↓</button>
+            <div id="d1" class="extra-info">
+                <h3>1. IMPLEMENTAÇÃO DE EDR/ANTIVÍRUS</h3>
+                <p>Instalação de agentes de detecção e resposta em todos os servidores críticos.</p>
+                <dt><strong>Objetivo:</strong></dt>
+                <dd>Monitoramento contínuo de atividades maliciosas e resposta automatizada a ameaças.</dd>
+                <br>
+                <dt><strong>Implementação:</strong></dt>
+                <ul>
+                    <li>Selecionar solução EDR (Endpoint Detection and Response) compatível com os sistemas da UFRGS</li>
+                    <li>Instalar agentes em todos os servidores críticos (SEI, Moodle, DNS, etc.)</li>
+                    <li>Configurar políticas de detecção baseadas em comportamento</li>
+                    <li>Integrar com SIEM para correlação de eventos</li>
+                </ul>
+                
+                <h3>2. GESTÃO DE VULNERABILIDADES</h3>
+                <p>Ciclo mensal de varreduras e aplicação de patches (atualizações) de segurança.</p>
+                <dt><strong>Processo:</strong></dt>
+                <ul>
+                    <li><strong>Varredura semanal:</strong> Identificação de vulnerabilidades em servidores expostos</li>
+                    <li><strong>Priorização:</strong> Classificação por criticidade (CVSS Score)</li>
+                    <li><strong>Correção:</strong> Aplicação de patches em janelas de manutenção predefinidas</li>
+                    <li><strong>Validação:</strong> Verificação pós-implantação</li>
+                </ul>
+                
+                <h3>3. CONTROLE DE ACESSO E MFA</h3>
+                <p>Garantir que 100% dos acessos administrativos exijam Múltiplo Fator de Autenticação.</p>
+                <dt><strong>Implementação:</strong></dt>
+                <ul>
+                    <li>Configurar MFA para acesso SSH, RDP e consoles administrativos</li>
+                    <li>Implementar políticas de senha forte (mínimo 12 caracteres, complexidade)</li>
+                    <li>Estabelecer controle de acesso baseado em função (RBAC)</li>
+                    <li>Auditar regularmente contas privilegiadas</li>
+                </ul>
+                
+                <h3>4. BACKUPS IMUTÁVEIS</h3>
+                <p>Configurar backups que não podem ser alterados ou deletados por processos do servidor, protegendo contra Ransomware.</p>
+                <dt><strong>Estratégia 3-2-1:</strong></dt>
+                <ul>
+                    <li><strong>3 cópias</strong> dos dados (original + 2 backups)</li>
+                    <li><strong>2 tipos diferentes</strong> de mídia de armazenamento</li>
+                    <li><strong>1 cópia offline</strong> ou fora do local</li>
+                </ul>
+                
+                <h3>5. HARDENING DE SISTEMAS</h3>
+                <p>Aplicação de configurações de segurança rigorosas seguindo benchmarks CIS.</p>
+                <dt><strong>Áreas críticas:</strong></dt>
+                <ul>
+                    <li><strong>Configuração do SO:</strong> Desabilitar serviços desnecessários, remover contas padrão</li>
+                    <li><strong>Configuração de rede:</strong> Firewall host-based, filtragem de portas</li>
+                    <li><strong>Configuração de aplicação:</strong> Segurança de servidores web, banco de dados</li>
+                    <li><strong>Configuração de logs:</strong> Centralização, retenção adequada</li>
+                </ul>
+                
+                <h3>6. PLANO DE RESPOSTA A INCIDENTES</h3>
+                <p>Desenvolvimento e teste regular do plano de resposta a incidentes.</p>
+                <dt><strong>Componentes essenciais:</strong></dt>
+                <ul>
+                    <li><strong>Equipe de resposta:</strong> Designação clara de responsabilidades</li>
+                    <li><strong>Procedimentos:</strong> Passos detalhados para cada tipo de incidente</li>
+                    <li><strong>Comunicação:</strong> Lista de contatos, templates de comunicação</li>
+                    <li><strong>Testes:</strong> Exercícios regulares (tabletop exercises)</li>
+                </ul>
             </div>
         </div>
 
         <div id="fase2" class="content-card">
-            <h2 style="color: #d35400">2. DETECÇÃO E ANÁLISE</h2>
-            <p style="color:#000000"; font-size: 10px>Transforma dados brutos em compreensão acionável.
-Serve para identificar, validar e classificar incidentes de segurança. Coleta evidências iniciais, analisa logs e determina escopo e impacto. É o "diagnóstico" que informa todas as ações subsequentes, separando falsos positivos de ameaças reais.</p>
-            <div class="img-container"><img src="deteccao.jpg" alt="Detecção"></div>
-            <div class="mitigation-tools">
-                <span class="tool-badge">IDS/IPS</span>
-                <span class="tool-badge">Wireshark</span>
-                <span class="tool-badge">EDR Alerts</span>
+            <div class="phase-title">
+                <h2 style="color: var(--orange)">Fase 2: Detecção</h2>
             </div>
-            <button class="btn-details" onclick="toggleDetails('det2')">TRIAGEM DO INCIDENTE ↓</button>
-            <div id="det2" class="extra-info">
-                <dl class="steps-guide">
-                    <dt>2.1 Alerta de Segurança</dt><dd>Recebimento do sinal via monitoramento ou usuário.</dd>
-                    <dt>2.2 Coleta inicial de evidências</dt><dd>Preservar dados voláteis antes que desapareçam (RAM, processos ativos, conexões).</dd>
-                    <dt>2.3 Análise de Logs</dt><dd>Verificar lateralidade e origem do tráfego suspeito.</dd>
-                    <dt>2.4 Incidente confirmado?</dt><dd>Separar falsos positivos (alerta errado) de incidentes reais.</dd>
-                    <dt>2.5 Falso Positivo</dt><dd>Documentar e aprender com alertas incorretos para ajustar detecções futuras.</dd>
-                    <dt>2.6 Classificar Severidade</dt><dd>Priorizar recursos - Crítico (para agora), Alto (para hoje), Médio/Baixo (planejar).</dd>
-                    <dt>2.7 Notificar Equipe Responsável </dt><dd>Acionar as pessoas certas para começar a resposta formal.</dd>
-                </dl>
+            <p>A detecção visa identificar <strong>indicadores de comprometimento (IoC)</strong> e <strong>atividades anômalas</strong> que sugiram a presença de um invasor no sistema.</p>
+            
+            <button class="btn-details" onclick="toggleDetails('d2')">VER ANÁLISE ↓</button>
+            <div id="d2" class="extra-info">
+                <h3>SINAIS DE ALERTA - INDICADORES DE COMPROMETIMENTO (IOC)</h3>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th>CATEGORIA</th>
+                            <th>INDICADORES DE COMPROMETIMENTO</th>
+                            <th>EXEMPLOS NA UFRGS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Logins Atípicos</strong></td>
+                            <td>Sucesso de login em horários não comerciais ou via IPs geograficamente incoerentes</td>
+                            <td>Login root às 03:00 de IP russo no servidor SEI</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Alteração de Arquivos Críticos</strong></td>
+                            <td>Mudanças em binários do sistema ou arquivos de configuração (/etc/passwd, chaves SSH)</td>
+                            <td>Modificação não autorizada em /etc/passwd no Moodle</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Consumo de Recursos</strong></td>
+                            <td>Picos de CPU sem carga de usuários (mineradores) ou alto tráfego de saída (exfiltração)</td>
+                            <td>CPU a 100% no servidor de DNS às 02:00</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Novas Conexões</strong></td>
+                            <td>Servidores estabelecendo conexões externas para portas de Comando e Controle (C2)</td>
+                            <td>Conexão do SEI para IP na China na porta 4444</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Processos Suspeitos</strong></td>
+                            <td>Execução de binários não autorizados ou com nomes similares a processos legítimos</td>
+                            <td>Processo "systemd-up" consumindo alta CPU</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h4>→ PROCESSO DE TOMADA DE DECISÃO</h4>
+                <p>O incidente é confirmado quando a <strong>análise cruzada de telemetria</strong> (Logs de Eventos, Tráfego de Rede e EDR) indica que a atividade não possui justificativa técnica ou administrativa.</p>
+                
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid var(--orange);">
+                    <h5>Etapas de Validação:</h5>
+                    <ol>
+                        <li><strong>Coleta de Dados:</strong> Reunir logs de múltiplas fontes (SIEM, EDR, firewall)</li>
+                        <li><strong>Correlação:</strong> Identificar padrões entre eventos aparentemente desconexos</li>
+                        <li><strong>Contextualização:</strong> Verificar se há manutenções programadas ou atividades legítimas</li>
+                        <li><strong>Classificação:</strong> Determinar a gravidade baseada no impacto potencial</li>
+                        <li><strong>Documentação:</strong> Registrar todas as evidências para análise forense</li>
+                    </ol>
+                </div>
+                
+                <h4>→ DÚVIDA OU INCERTEZA (FALSO POSITIVO)</h4>
+                <p>Quando houver comportamento suspeito mas não claramente malicioso:</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Análise de Contexto</h5>
+                        <p>Verificar se há uma janela de manutenção programada ou se a ação partiu de um administrador legítimo em uma tarefa excepcional.</p>
+                        <ul>
+                            <li>Consultar calendário de manutenções</li>
+                            <li>Verificar com a equipe responsável</li>
+                            <li>Analisar histórico de atividades similares</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Monitoramento Reforçado</h5>
+                        <p>Aplicar "Observação Ativa" sem o isolamento imediato do servidor, visando coletar mais evidências sobre as intenções do suposto atacante.</p>
+                        <ul>
+                            <li>Aumentar verbosidade dos logs</li>
+                            <li>Configurar alertas específicos</li>
+                            <li>Monitorar comportamento em tempo real</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Automação</h5>
+                        <p>Sempre que possível, a confirmação de IoCs conhecidos deve ser automatizada via ferramentas de segurança para reduzir o Mean Time to Detect (MTTD).</p>
+                        <ul>
+                            <li>Integração SIEM-EDR</li>
+                            <li>Playbooks automatizados de resposta</li>
+                            <li>Correlação automática de eventos</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>FERRAMENTAS DE DETECÇÃO NA UFRGS</h3>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th>FERRAMENTA</th>
+                            <th>FUNÇÃO</th>
+                            <th>COBERTURA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>SIEM (Security Information and Event Management)</strong></td>
+                            <td>Correlação de logs de múltiplas fontes, detecção de anomalias</td>
+                            <td>Todos os servidores críticos</td>
+                        </tr>
+                        <tr>
+                            <td><strong>EDR (Endpoint Detection and Response)</strong></td>
+                            <td>Monitoramento de atividades em endpoints, detecção baseada em comportamento</td>
+                            <td>Servidores Windows e Linux</td>
+                        </tr>
+                        <tr>
+                            <td><strong>IDS/IPS (Network Intrusion Detection/Prevention)</strong></td>
+                            <td>Detecção de tráfego malicioso na rede, assinaturas de ataques</td>
+                            <td>Perímetro de rede, segmentos críticos</td>
+                        </tr>
+                        <tr>
+                            <td><strong>WAF (Web Application Firewall)</strong></td>
+                            <td>Proteção de aplicações web contra exploração de vulnerabilidades</td>
+                            <td>SEI, Moodle, Portal de Serviços</td>
+                        </tr>
+                        <tr>
+                            <td><strong>File Integrity Monitoring</strong></td>
+                            <td>Detecção de alterações não autorizadas em arquivos críticos</td>
+                            <td>/etc, /bin, /usr/bin em servidores Linux</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
         <div id="fase3" class="content-card">
-            <h2 style="color: #D95141">3. CONTENÇÃO</h2>
-            <p style="color:#000000"; font-size: 10px>Impede a escalada e ganha tempo para soluções definitivas.
-Isola sistemas comprometidos, bloquea acessos maliciosos e preserva evidências. É a resposta de emergência que limita danos imediatos, contendo o "sangramento" enquanto a equipe planeja a erradicação completa.</p>
-            <div class="img-container"><img src="contencao.jpg" alt="Contenção"></div>
-            <div class="mitigation-tools">
-                <span class="tool-badge">VLAN Isolation</span>
-                <span class="tool-badge">EDR Network Isolate</span>
-                <span class="tool-badge">AD Account Lock</span>
+            <div class="phase-title">
+                <h2 style="color: var(--red)">Fase 3: Análise</h2>
             </div>
-            <button class="btn-details" onclick="toggleDetails('det3')">ESTANCAR O INCIDENTE ↓</button>
-            <div id="det3" class="extra-info">
-                <dl class="steps-guide">
-                    <dt>3.1 Servidor Crítico?</dt><dd>Se SIM: Isolar da rede imediatamente (3.2).</dd>
-                    <dt>Isolar servidor da rede</dt><dd>3.2 Impedir que o atacante continue operando e que o malware se espalhe.</dd>
-                    <dt>3.3 Limitar Acessos</dt><dd>Para servidores não críticos, restringir tráfego para IP suspeito.</dd>
-                    <dt>3.4 Bloquear Contas</dt><dd>Desativar usuários comprometidos no diretório de identidade.</dd>
-                    <dt>3.5 Desativar serviços afetados</dt><dd>Parar processos maliciosos ou vulneráveis que estão sendo explorados.</dd>
-                    <dt>3.6 Evidências Forenses</dt><dd>Realizar dump de memória e cópia de discos antes de desligar.</dd>
-                    <dt>3.7 Contenção foi eficaz</dt><dd>Verificar se o atacante ainda tem acesso ou se o malware continua ativo.</dd>
-                    <dt>3.8 Reavaliar e ampliar isolamento</dt><dd>Se a contenção falhou, aplicar medidas mais rigorosas.</dd>
-                </dl>
+            <p>Nesta fase, a equipe técnica do CPD deve ir além da simples detecção, realizando uma <strong>investigação minuciosa</strong> para determinar a profundidade da invasão e coletar evidências forenses.</p>
+          
+            <button class="btn-details" onclick="toggleDetails('d3')">ANÁLISE E TABELAS ↓</button>
+            <div id="d3" class="extra-info">
+                <h3>COLETA DE EVIDÊNCIAS FORENSES</h3>
+                <p>O foco é entender o "Paciente Zero" (como o invasor entrou), quais dados foram acessados e se o comprometimento se espalhou para outros ativos do catálogo de TI da UFRGS.</p>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th width="30%">AÇÕES</th>
+                            <th width="70%">EVIDÊNCIAS PRIORITÁRIAS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Identificar o vetor de entrada</strong></td>
+                            <td>
+                                Logs de acesso Web (Apache/Nginx) e logs de Auditoria do SO
+                                <div class="destaque-tabela">
+                                    <strong>Exemplo:</strong> Login SSH bem-sucedido de IP externo às 02:30
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Mapear movimentação lateral</strong></td>
+                            <td>
+                                Registros de conexões internas (RDP, SSH, SMB) entre servidores
+                                <div class="destaque-tabela">
+                                    <strong>Exemplo:</strong> Conexão do servidor Moodle para o servidor de banco de dados SEI
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Analisar persistência</strong></td>
+                            <td>
+                                Verificação de novas tarefas agendadas (Cron/Scheduled Tasks)
+                                <div class="destaque-tabela">
+                                    <strong>Exemplo:</strong> Nova tarefa cron executando script desconhecido
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Detectar exfiltração</strong></td>
+                            <td>
+                                Logs de Firewall de borda e volumetria de tráfego de saída
+                                <div class="destaque-tabela">
+                                    <strong>Exemplo:</strong> 10GB de saída para IP externo em 2 horas
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Preservar registros</strong></td>
+                            <td>
+                                Imagem forense do disco e Dump da memória RAM para análise de malware
+                                <div class="destaque-tabela">
+                                    <strong>Exemplo:</strong> Imagem completa do servidor comprometido para análise offline
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3>TÉCNICAS DE ANÁLISE FORENSE</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 25px 0;">
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #2196F3;">
+                        <h4>Análise de Memória RAM (Live Forensics)</h4>
+                        <p>Coleta de dump de memória para identificar malwares residentes, Web Shells injetadas em processos legítimos e comandos executados que não deixaram rastros no disco.</p>
+                        <ul>
+                            <li><strong>Ferramentas:</strong> Volatility, Rekall, FTK Imager</li>
+                            <li><strong>Foco:</strong> Processos ocultos, conexões de rede, strings em memória</li>
+                            <li><strong>Importância:</strong> Dados voláteis são perdidos no reboot</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #4CAF50;">
+                        <h4>Análise de Timeline (Sistema de Arquivos)</h4>
+                        <p>Investigar a data de criação e modificação de arquivos para reconstruir o passo a passo do invasor e identificar ferramentas de hacking depositadas no servidor.</p>
+                        <ul>
+                            <li><strong>Ferramentas:</strong> Sleuth Kit, Autopsy, Plaso</li>
+                            <li><strong>Foco:</strong> MAC times (Modified, Accessed, Changed)</li>
+                            <li><strong>Importância:</strong> Reconstrução da linha do tempo do ataque</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #FF9800;">
+                        <h4>Rastreamento de Movimentação Lateral</h4>
+                        <p>Verificar logs de conexões internas (protocolos SMB, RDP, SSH) para descobrir se o atacante tentou saltar para servidores de banco de dados ou para o Controlador de Domínio (AD).</p>
+                        <ul>
+                            <li><strong>Ferramentas:</strong> Log analysis (ELK Stack), Network forensics</li>
+                            <li><strong>Foco:</strong> Conexões entre hosts internos</li>
+                            <li><strong>Importância:</strong> Determinar escopo total do comprometimento</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>MAPEAMENTO TÉCNICO (PADRÕES DE ATAQUE)</h3>
+                <p>Classificação das técnicas utilizadas pelo atacante conforme framework MITRE ATT&CK:</p>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th width="20%">TÁTICA MITRE</th>
+                            <th width="40%">TÉCNICAS IDENTIFICADAS</th>
+                            <th width="40%">INDICADORES NA UFRGS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Initial Access</strong><br>(Acesso Inicial)</td>
+                            <td>Exploração de serviços públicos, Phishing, Credenciais válidas</td>
+                            <td>SSH brute force no servidor Moodle, exploração de vulnerabilidade no Apache</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Execution</strong><br>(Execução)</td>
+                            <td>Command and Scripting Interpreter, Scheduled Task/Job</td>
+                            <td>Execução de script Python via cron, PowerShell remoto</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Persistence</strong><br>(Persistência)</td>
+                            <td>Boot or Logon Autostart Execution, Scheduled Task/Job</td>
+                            <td>Novo serviço systemd, entrada no crontab</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Privilege Escalation</strong><br>(Escalonamento de Privilégios)</td>
+                            <td>Exploitation for Privilege Escalation, Access Token Manipulation</td>
+                            <td>Uso de CVE-2021-4034 (PwnKit), pass-the-hash</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Defense Evasion</strong><br>(Evasão de Defesa)</td>
+                            <td>Indicator Removal, Impair Defenses</td>
+                            <td>Limpeza de logs, desativação de antivírus</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lateral Movement</strong><br>(Movimentação Lateral)</td>
+                            <td>Remote Services, Lateral Tool Transfer</td>
+                            <td>Conexão SSH entre servidores internos, uso de PsExec</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Exfiltration</strong><br>(Exfiltração)</td>
+                            <td>Exfiltration Over C2 Channel, Transfer Size Limits</td>
+                            <td>Upload de arquivos para servidor FTP externo, DNS tunneling</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3>DOCUMENTAÇÃO DO ESCOPO DO COMPROMETIMENTO</h3>
+                <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                    <p><strong>Informações críticas a documentar:</strong></p>
+                    <ul>
+                        <li><strong>Tempo de permanência (Dwell Time):</strong> Período total que o atacante esteve no sistema</li>
+                        <li><strong>Servidores comprometidos:</strong> Lista completa de hosts afetados</li>
+                        <li><strong>Credenciais comprometidas:</strong> Contas administrativas utilizadas pelo atacante</li>
+                        <li><strong>Dados acessados:</strong> Bases de dados, arquivos sensíveis visualizados/alterados</li>
+                        <li><strong>Ferramentas utilizadas:</strong> Malwares, scripts, utilitários deixados no sistema</li>
+                        <li><strong>Vetores de saída:</strong> IPs e portas utilizados para exfiltração e C2</li>
+                    </ul>
+                </div>
+                
+                <h3>ANÁLISE DE LOGS ESPECÍFICOS</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 25px 0;">
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Logs de Autenticação (Linux)</h5>
+                        <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto;">
+/var/log/auth.log
+/var/log/secure
+/var/log/audit/audit.log</pre>
+                        <p><strong>O que buscar:</strong> Logins SSH, su/falha, sudo, novas contas</p>
+                    </div>
+                    
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Logs de Aplicação Web</h5>
+                        <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto;">
+/var/log/apache2/access.log
+/var/log/apache2/error.log
+/var/log/nginx/access.log</pre>
+                        <p><strong>O que buscar:</strong> SQLi, LFI/RFI, uploads suspeitos, scanners</p>
+                    </div>
+                    
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Logs do Sistema (Windows)</h5>
+                        <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto;">
+Security (Event ID 4624, 4625, 4688)
+System (Event ID 7045)
+Application (Event ID 1000+)</pre>
+                        <p><strong>O que buscar:</strong> Logons, execução de processos, serviços</p>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div id="fase4" class="content-card">
-            <h2 style="color: #D95141">4. ERRADICAÇÃO</h2>
-             <p style="color:#000000"; font-size: 10px>Remove permanentemente a causa raiz do problema.
-Serve para eliminar malware, backdoors e outros artefatos do atacante, corrigir vulnerabilidades exploradas e trocar credenciais comprometidas. Garante que a ameaça não persista ou retorne após a recuperação.</p>
-            <div class="img-container"><img src="erradicacao.jpg" alt="Erradicação"></div>
-            <div class="mitigation-tools">
-                <span class="tool-badge">Malware Removal</span>
-                <span class="tool-badge">Nessus Scanner</span>
-                <span class="tool-badge">Patch Mgmt</span>
+            <div class="phase-title">
+                <h2 style="color: #E0493E">Fase 4: Contenção</h2>
             </div>
-            <button class="btn-details" onclick="toggleDetails('det4')">LIMPEZA E REMEDIAÇÃO ↓</button>
-            <div id="det4" class="extra-info">
-                <dl class="steps-guide">
-                    <dt>4.1 Causa Raiz</dt><dd>Identificar como o atacante entrou (Vulnerabilidade/Phishing).</dd>
-                    <dt>4.2 Remover Malwares</dt><dd>Excluir binários, scripts e tarefas agendadas maliciosas.</dd>
-                    <dt>4.3 Aplicar patches de segurança</dt><dd>Corrigir as vulnerabilidades que permitiram o ataque.</dd>
-                    <dt>4.4 Revisar permissões e acessos</dt><dd>Ajustar controles de acesso para evitar reinfecção.</dd>
-                    <dt>4.5 Trocar Credenciais</dt><dd>Invalidar senhas que podem ter sido comprometidas.</dd>
-                </dl>
+            <p>A contenção foca em <strong>interromper o ataque</strong> e <strong>prevenir danos adicionais</strong>. A gravidade do comprometimento deve ser classificada com base na sensibilidade dos dados armazenados e no nível de privilégio obtido pelo invasor.</p>
+            
+            <button class="btn-details" onclick="toggleDetails('d4')">ESTRATÉGIAS DE CONTENÇÃO ↓</button>
+            <div id="d4" class="extra-info">
+                <h3>CLASSIFICAÇÃO E RESPOSTA POR CRITICIDADE</h3>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th width="30%">CRITÉRIOS</th>
+                            <th width="15%">TEMPO DE REAÇÃO</th>
+                            <th width="55%">AÇÕES IMEDIATAS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Ransomware ativo, exfiltração de dados sensíveis ou acesso Root confirmado</strong></td>
+                            <td style="text-align: center; font-weight: bold; color: #d32f2f;">Imediato<br>(Minutos)</td>
+                            <td>
+                                Isolar o servidor da rede (Quarentena); suspender contas administrativas afetadas
+                                <div class="destaque-tabela">
+                                    <strong>Prioridade máxima:</strong> Proteger dados críticos e prevenir propagação
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Web Shell detectada ou tentativa de escalonamento de privilégios</strong></td>
+                            <td style="text-align: center; font-weight: bold; color: #f57c00;">Até 30 Minutos</td>
+                            <td>
+                                Bloquear IPs externos atacantes no Firewall; reset de credenciais do serviço
+                                <div class="destaque-tabela">
+                                    <strong>Prioridade alta:</strong> Impedir controle remoto e escalonamento
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Atividade de Cryptojacking (mineração) ou Malware em pastas temporárias</strong></td>
+                            <td style="text-align: center; font-weight: bold; color: #ffb300;">Até 2 Horas</td>
+                            <td>
+                                Encerrar processos maliciosos; isolar diretórios de escrita
+                                <div class="destaque-tabela">
+                                    <strong>Prioridade média:</strong> Restaurar desempenho do sistema
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tentativas de Brute Force constantes sem sucesso de login</strong></td>
+                            <td style="text-align: center; font-weight: bold; color: #388e3c;">Até 4 Horas</td>
+                            <td>
+                                Atualizar listas de bloqueio; fortalecer políticas de senha/MFA
+                                <div class="destaque-tabela">
+                                    <strong>Prioridade baixa:</strong> Fortalecer defesas preventivas
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Escaneamentos de portas (Port Scan) ou ruídos de rede bloqueados automaticamente</strong></td>
+                            <td style="text-align: center; font-weight: bold; color: #1976d2;">Até 8 Horas</td>
+                            <td>
+                                Registro em log para análise de tendência; nenhuma ação manual imediata
+                                <div class="destaque-tabela">
+                                    <strong>Monitoramento:</strong> Apenas documentação para inteligência
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="text-align: center; font-style: italic; padding: 15px; background-color: #f9f9f9;">
+                                <strong>Fonte:</strong> Elaborado pelo autor - Playbook de Comprometimento de Servidores UFRGS
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+                
+                <h3>ESTRATÉGIAS DE ISOLAMENTO</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 25px 0;">
+                    <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px; border-left: 4px solid #4CAF50;">
+                        <h4>Isolamento Lógico (VLAN/ACL)</h4>
+                        <p>Restringir o acesso de rede do servidor comprometido sem desconectá-lo fisicamente.</p>
+                        <ul>
+                            <li><strong>VLAN de Quarentena:</strong> Mover servidor para VLAN isolada</li>
+                            <li><strong>ACLs de Firewall:</strong> Bloquear todo tráfego exceto para análise</li>
+                            <li><strong>Segmentação:</strong> Isolar o segmento de rede afetado</li>
+                            <li><strong>Vantagem:</strong> Mantém servidor online para análise forense</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px; border-left: 4px solid #FF9800;">
+                        <h4>Isolamento Físico</h4>
+                        <p>Desconectar fisicamente o servidor da rede para contenção imediata.</p>
+                        <ul>
+                            <li><strong>Desconexão de Cabo:</strong> Remover cabo de rede do servidor</li>
+                            <li><strong>Desativação de Porta:</strong> Desabilitar porta no switch</li>
+                            <li><strong>Power Off:</strong> Desligar o servidor (último recurso)</li>
+                            <li><strong>Vantagem:</strong> Contenção 100% eficaz imediata</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #fce4ec; padding: 20px; border-radius: 8px; border-left: 4px solid #E91E63;">
+                        <h4>Isolamento de Aplicação</h4>
+                        <p>Restringir apenas os serviços comprometidos mantendo outros funcionando.</p>
+                        <ul>
+                            <li><strong>Parada de Serviço:</strong> Parar apenas o serviço comprometido</li>
+                            <li><strong>Bloqueio de Porta:</strong> Bloquear apenas a porta específica</li>
+                            <li><strong>Controle de Acesso:</strong> Restringir acesso ao aplicativo</li>
+                            <li><strong>Vantagem:</strong> Minimiza impacto nos negócios</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>PRESERVAÇÃO DE EVIDÊNCIAS VOLÁTEIS</h3>
+                <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196F3;">
+                    <p><strong>ATENÇÃO:</strong> Durante o isolamento, a equipe deve evitar o reinício imediato do servidor (reboot), pois isso pode apagar evidências voláteis na memória RAM (malwares fileless) que são cruciais para a fase de análise.</p>
+                    
+                    <h5>Evidências voláteis a preservar:</h5>
+                    <ul>
+                        <li><strong>Memória RAM:</strong> Processos ativos, conexões de rede, credenciais em texto claro</li>
+                        <li><strong>Conexões de Rede:</strong> Sessões estabelecidas, portas abertas</li>
+                        <li><strong>Processos em Execução:</strong> Malwares, ferramentas de ataque</li>
+                        <li><strong>Arquivos Temporários:</strong> Artefatos que podem ser apagados no reboot</li>
+                    </ul>
+                    
+                    <h5>Comandos para coleta de evidências voláteis (Linux):</h5>
+                    <pre style="background-color: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; font-family: monospace;">
+# Coleta básica de evidências voláteis
+ps auxf > /tmp/processes.txt
+netstat -tulpn > /tmp/network_connections.txt
+lsof -i > /tmp/open_ports.txt
+ss -tulpn > /tmp/socket_stats.txt
+w > /tmp/logged_in_users.txt
+last > /tmp/login_history.txt
+history > /tmp/command_history.txt
+
+# Dump de memória (requer ferramentas especiais)
+# LiME, fmem, ou dump via /proc/kcore</pre>
+                </div>
+                
+                <h3>PROTEÇÃO DE SERVIDORES ADJACENTES</h3>
+                <p>Identificar servidores que compartilham o mesmo segmento de rede ou as mesmas credenciais e reforçar o monitoramento sobre eles, antecipando uma possível movimentação lateral já iniciada.</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 25px 0;">
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Análise de Conectividade</h5>
+                        <ul>
+                            <li>Verificar logs de conexões do servidor comprometido para outros hosts</li>
+                            <li>Analisar tráfego de rede entre servidores no mesmo segmento</li>
+                            <li>Identificar comunicações suspeitas nos últimos 7 dias</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Auditoria de Credenciais Compartilhadas</h5>
+                        <ul>
+                            <li>Identificar contas administrativas usadas no servidor comprometido</li>
+                            <li>Verificar onde essas credenciais são reutilizadas</li>
+                            <li>Forçar troca de senhas de contas compartilhadas</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                        <h5>Monitoramento Reforçado</h5>
+                        <ul>
+                            <li>Aumentar verbosidade de logs em servidores adjacentes</li>
+                            <li>Configurar alertas específicos para atividades suspeitas</li>
+                            <li>Monitorar tentativas de acesso de IPs suspeitos</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>COMUNICAÇÃO DURANTE A CONTENÇÃO</h3>
+                <div style="background-color: #fff8e1; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffb300;">
+                    <h5>Protocolos de comunicação durante incidentes críticos:</h5>
+                    <ul>
+                        <li><strong>Equipe Técnica:</strong> Canal dedicado (Slack, Teams) com atualizações em tempo real</li>
+                        <li><strong>Gestão:</strong> Briefings periódicos (a cada 30 minutos em incidentes críticos)</li>
+                        <li><strong>Usuários Afetados:</strong> Comunicação clara sobre indisponibilidade e estimativa</li>
+                        <li><strong>Registro:</strong> Documentar todas as decisões e ações no sistema de tickets</li>
+                        <li><strong>Confidencialidade:</strong> Limitar informações sensíveis a necessidade de conhecimento</li>
+                    </ul>
+                    
+                    <div style="margin-top: 15px; padding: 15px; background-color: white; border-radius: 5px;">
+                        <strong>Template de Comunicação para Usuários:</strong>
+                        <p><em>"Estamos enfrentando um incidente de segurança que afeta temporariamente o serviço [NOME DO SERVIÇO]. Nossa equipe técnica está trabalhando ativamente para resolver a situação. Estimamos que o serviço estará restaurado em aproximadamente [TEMPO ESTIMADO]. Pedimos desculpas pelo transtorno e agradecemos sua compreensão."</em></p>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div id="fase5" class="content-card">
-            <h2 style="color: #4869D1">5. RECUPERAÇÃO</h2>
-             <p style="color:#000000"; font-size: 10px>Retoma operações empresariais com segurança e confiança.
-Restaura sistemas a partir de backups limpos, reintegra gradualmente ao ambiente produtivo e valida estabilidade. É a transição do estado de crise para operação normal, com monitoramento reforçado inicial.</p>
-             <div class="img-container"><img src="recuperacao.jpg" alt="Recuperação"></div>
-            <div class="mitigation-tools">
-                <span class="tool-badge">Bare Metal Recovery</span>
-                <span class="tool-badge">Zabbix/Nagios</span>
+            <div class="phase-title">
+                <h2 style="color: var(--blue)">Fase 5: Erradicação</h2>
             </div>
-            <button class="btn-details" onclick="toggleDetails('det5')">REESTABELECIMENTO ↓</button>
-            <div id="det5" class="extra-info">
-                <dl class="steps-guide">
-                    <dt>5.1 Restaurar serviços afetados</dt><dd>Reativar funcionalidades para os usuários.</dd>
-                    <dt>5.2 Restaurar Backups</dt><dd>Utilizar backups de data anterior à infecção.</dd>
-                    <dt>5.3 Monitoramento Reforçado</dt><dd>Vigiar o sistema por 48h-72h em busca de recidivas.</dd>
-                    <dt>5.4 Sistema estável?</dt><dd>Validar que tudo está funcionando corretamente e seguramente.</dd>
-                    <dt>5.5 Manter isolamento e reanalisar</dt><dd>Se problemas persistem, voltar à fase de erradicação sem expor o sistema.</dd>
-                    <dt>5.6 Reintegrar</dt><dd>Retornar o servidor para o ambiente produtivo.</dd>
-                </dl>
+            <p>Fase focada em <strong>eliminar completamente as causas raiz</strong> do ataque, removendo todos os vestígios do invasor do sistema.</p>
+            
+            <button class="btn-details" onclick="toggleDetails('d5')">PROCEDIMENTOS DE ERRADICAÇÃO ↓</button>
+            <div id="d5" class="extra-info">
+                <h3>ELIMINAÇÃO DE PONTOS DE EXPOSIÇÃO ATIVA</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 25px 0;">
+                    <div style="background-color: #ffebee; padding: 20px; border-radius: 8px; border-left: 4px solid #d32f2f;">
+                        <h4>Remover Web Shells e Backdoors</h4>
+                        <p>Localizar e deletar scripts e binários ocultos em diretórios de aplicação ou sistema utilizados para comando remoto.</p>
+                        <ul>
+                            <li><strong>Locais comuns:</strong> /tmp, /dev/shm, diretórios de upload</li>
+                            <li><strong>Ferramentas:</strong> ClamAV, rkhunter, chkrootkit</li>
+                            <li><strong>Verificação:</strong> Comparar com baseline conhecida</li>
+                            <li><strong>Exemplo:</strong> Remover shell.php em /var/www/html/uploads/</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #f3e5f5; padding: 20px; border-radius: 8px; border-left: 4px solid #7b1fa2;">
+                        <h4>Encerrar Processos Maliciosos</h4>
+                        <p>Finalizar processos de mineração (Cryptojacking), ferramentas de força bruta ou varredura interna injetados na memória.</p>
+                        <ul>
+                            <li><strong>Identificação:</strong> ps aux, top, htop</li>
+                            <li><strong>Sinais:</strong> Alto uso de CPU por processos desconhecidos</li>
+                            <li><strong>Encerramento:</strong> kill -9 [PID], pkill [nome]</li>
+                            <li><strong>Exemplo:</strong> Encerrar processo "xmrig" consumindo 100% CPU</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #e8eaf6; padding: 20px; border-radius: 8px; border-left: 4px solid #303f9f;">
+                        <h4>Expurgar Contas e Chaves</h4>
+                        <p>Deletar usuários criados pelo invasor e revogar todas as chaves SSH autorizadas que foram inseridas durante o período do incidente.</p>
+                        <ul>
+                            <li><strong>Verificação:</strong> /etc/passwd, /etc/shadow</li>
+                            <li><strong>Chaves SSH:</strong> ~/.ssh/authorized_keys, /etc/ssh/authorized_keys</li>
+                            <li><strong>Limpeza:</strong> userdel, remover linhas suspeitas</li>
+                            <li><strong>Exemplo:</strong> Remover usuário "backdoor" criado pelo atacante</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>CORREÇÃO DE VULNERABILIDADES E HARDENING</h3>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th width="25%">OBJETIVO</th>
+                            <th width="40%">PROCEDIMENTOS</th>
+                            <th width="35%">RESPONSÁVEL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Sanear o Vetor de Entrada</strong></td>
+                            <td>Aplicar patches de segurança críticos (CVEs) em softwares de servidor (Apache, Nginx, Banco de Dados) que serviram de porta de entrada.</td>
+                            <td>
+                                <div style="background-color: #e3f2fd; padding: 10px; border-radius: 5px; text-align: center;">
+                                    <strong>Administradores de Sistema</strong><br>
+                                    <small>Patch Management Team</small>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Reset de Credenciais</strong></td>
+                            <td>Forçar a troca de senhas de todas as contas que podem ter sido capturadas na memória do servidor comprometido.</td>
+                            <td>
+                                <div style="background-color: #f3e5f5; padding: 10px; border-radius: 5px; text-align: center;">
+                                    <strong>Segurança da Informação</strong><br>
+                                    <small>Identity and Access Management</small>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Reforço de Configuração</strong></td>
+                            <td>Revisar permissões de arquivos (SUID/Sudoers) e desabilitar serviços e portas desnecessárias que aumentam a superfície de ataque.</td>
+                            <td>
+                                <div style="background-color: #e8f5e9; padding: 10px; border-radius: 5px; text-align: center;">
+                                    <strong>Equipe de Hardening</strong><br>
+                                    <small>Security Baseline Team</small>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Implementação de MFA</strong></td>
+                            <td>Configurar Múltiplo Fator de Autenticação para todos os acessos administrativos remotos (SSH, RDP, consoles).</td>
+                            <td>
+                                <div style="background-color: #fff3e0; padding: 10px; border-radius: 5px; text-align: center;">
+                                    <strong>Administradores de Rede</strong><br>
+                                    <small>Authentication Services</small>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3>VERIFICAÇÃO PÓS-ERRADICAÇÃO</h3>
+                <div style="background-color: #e8f5e9; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+                    <h5>Checklist de verificação final:</h5>
+                    <ul>
+                        <li>✅ Confirmar que todos os arquivos maliciosos identificados na análise foram removidos</li>
+                        <li>✅ Validar que as contas administrativas comprometidas foram resetadas e possuem MFA ativo</li>
+                        <li>✅ Testar os novos controles de acesso implementados para garantir que não impedem o uso legítimo</li>
+                        <li>✅ Verificar, através de logs, que o servidor não está mais tentando se comunicar com IPs de Comando e Controle (C2)</li>
+                        <li>✅ Confirmar que todas as vulnerabilidades exploradas foram corrigidas</li>
+                        <li>✅ Validar que o sistema está operando dentro dos parâmetros normais de performance</li>
+                        <li>✅ Documentar todas as ações de erradicação realizadas</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
         <div id="fase6" class="content-card">
-            <h2 style="color: #4869D1">6. PÓS-INCIDENTE</h2> <p style="color:#000000"; font-size: 10px>Transforma experiência em melhoria organizacional.
-Documenta lições aprendidas, analisa causas profundas, atualiza procedimentos e treina equipes. Fecha o ciclo do incidente atual enquanto fortalece a preparação para futuros eventos, criando resiliência contínua.</p>
-
-             <div class="img-container"><img src="posincidente.jpg" alt="Recuperação"></div>
-            <button class="btn-details" onclick="toggleDetails('det6')">LIÇÕES APRENDIDAS ↓</button>
-            <div id="det6" class="extra-info">
-                <dl class="steps-guide">
-                    <dt>6.1 Documentação</dt><dd>Relatório detalhado do incidente e impactos.</dd>
-                    <dt>6.2 Atualizar playbooks</dt><dd>Incorporar lições aprendidas nos procedimentos.</dd>
-                    <dt>6.3 Revisar Controles</dt><dd>Melhorar regras de firewall ou políticas de acesso.</dd>
-                    <dt>6.4 Treinar equipe</dt><dd>Compartilhar conhecimento e melhorar habilidades para próximos incidentes.</dd>
-                    <dt>6.5 Relatório Executivo</dt><dd>Comunicar à liderança o impacto, ações tomadas e recomendações.</dd>
-                </dl>
+            <div class="phase-title">
+                <h2 style="color: var(--blue)">Fase 6: Recuperação</h2>
+            </div>
+            <p>Fase focada em <strong>restaurar os serviços</strong> de forma segura e controlada, garantindo a normalização das operações.</p>
+            
+            <button class="btn-details" onclick="toggleDetails('d6')">PROCEDIMENTOS DE RECUPERAÇÃO ↓</button>
+            <div id="d6" class="extra-info">
+                <h3>PROCEDIMENTOS DE RECUPERAÇÃO</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 25px 0;">
+                    <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px;">
+                        <h4>Sanitização de Backups</h4>
+                        <p>Restaurar sistemas a partir de backups limpos (anteriores à data confirmada da intrusão). Após a restauração, realizar varredura imediata para garantir que vulnerabilidades não foram reintroduzidas.</p>
+                        <ul>
+                            <li><strong>Verificação de Integridade:</strong> Checksum dos backups</li>
+                            <li><strong>Data Limite:</strong> Usar backup anterior à data do comprometimento</li>
+                            <li><strong>Teste:</strong> Restaurar em ambiente isolado primeiro</li>
+                            <li><strong>Validação:</strong> Verificar ausência de artefatos maliciosos</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px;">
+                        <h4>Reconfiguração de Acessos</h4>
+                        <p>Refinar as regras de Firewall e WAF com base nos padrões observados durante a análise do comprometimento, bloqueando os vetores de entrada específicos utilizados pelo atacante.</p>
+                        <ul>
+                            <li><strong>Firewall:</strong> Bloquear IPs atacantes, restringir portas</li>
+                            <li><strong>WAF:</strong> Adicionar regras para técnicas específicas</li>
+                            <li><strong>IDS/IPS:</strong> Atualizar assinaturas com base no ataque</li>
+                            <li><strong>Monitoramento:</strong> Configurar alertas para padrões similares</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #f3e5f5; padding: 20px; border-radius: 8px;">
+                        <h4>Configuração de Alertas de Integridade</h4>
+                        <p>Ativar monitoramento de integridade de arquivos (FIM) e alertas para execuções de processos suspeitos ou alterações em arquivos sensíveis de sistema.</p>
+                        <ul>
+                            <li><strong>FIM:</strong> Tripwire, AIDE, OSSEC</li>
+                            <li><strong>Monitoramento:</strong> Alterações em /etc, /bin, /usr/bin</li>
+                            <li><strong>Alertas:</strong> Configurar thresholds adequados</li>
+                            <li><strong>Resposta:</strong> Integrar com sistema de tickets</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>TESTES DE VALIDAÇÃO PÓS-COMPROMETIMENTO</h3>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th width="20%">TESTE</th>
+                            <th width="35%">OBJETIVO</th>
+                            <th width="35%">CRITÉRIO DE APROVAÇÃO</th>
+                            <th width="10%">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Scan de Vulnerabilidade</strong></td>
+                            <td>Verificar se a brecha(CVE) utilizada foi devidamente corrigida</td>
+                            <td>Relatório sem vulnerabilidades críticas</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Integridade de Arquivos</strong></td>
+                            <td>Confirmar que arquivos de sistema não foram alterados pós-restauro</td>
+                            <td>Hashes de arquivos coincidem com a baseline original</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Auditoria de Contas</strong></td>
+                            <td>Validar que apenas usuários legítimos possuem acesso ao servidor</td>
+                            <td>100% dos usuários ativos catalogados no CPD</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Teste de Invasão Pontual</strong></td>
+                            <td>Simular a técnica usada pelo invasor para testar a nova defesa</td>
+                            <td>Tentativa de exploração bloqueada pelo sistema</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #FF9800; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">AGENDADO</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Validação de MFA</strong></td>
+                            <td>Testar se o segundo fator de autenticação é exigido e obrigatório</td>
+                            <td>Acesso negado sem o token de verificação</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Análise de Conexões Outbound</strong></td>
+                            <td>Monitorar se o servidor tenta "falar" com o exterior(C2)</td>
+                            <td>Ausência de conexões para IPs externos suspeitos</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Validação de Performance</strong></td>
+                            <td>Verificar se o sistema opera na velocidade padrão sem processos ocultos</td>
+                            <td>Uso de recursos dentro do baseline histórico</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
+        <div id="fase7" class="content-card">
+            <div class="phase-title">
+                <h2 style="color: var(--blue)">Fase 7: Pós-Incidente</h2>
+            </div>
+            <p>A análise pós-incidente foca em <strong>compreender a dinâmica da intrusão</strong> para fortalecer a infraestrutura da UFRGS e <strong>evitar que novas violações ocorram</strong>.</p>
+           
+            <button class="btn-details" onclick="toggleDetails('d7')">LIÇÕES APRENDIDAS ↓</button>
+            <div id="d7" class="extra-info">
+                <h3>ANÁLISE DE CAUSA RAIZ (ROOT CAUSE ANALYSIS)</h3>
+                <p>Para uma investigação de causa raiz eficaz, é necessário olhar além dos logs superficiais e entender as lacunas na estratégia de defesa em profundidade.</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 25px 0;">
+                    <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; border: 1px solid #6666FF;">
+                        <h4>Falhas de Detecção</h4>
+                        <p><strong>Por que as ferramentas de proteção não detectaram o vetor de entrada original?</strong></p>
+                        <ul>
+                            <li>Assinaturas desatualizadas no IDS/IPS</li>
+                            <li>Thresholds de alerta muito altos</li>
+                            <li>Falta de monitoramento em camadas específicas</li>
+                            <li>Logs não sendo coletados ou analisados</li>
+                            <li>Falsos positivos excessivos levando a "alert fatigue"</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #f8d7da; padding: 20px; border-radius: 8px; border: 1px solid #dc3545;">
+                        <h4>Falhas de Prevenção</h4>
+                        <p><strong>Por que as defesas preventivas falharam?</strong></p>
+                        <ul>
+                            <li>Patches de segurança não aplicados</li>
+                            <li>Configurações inadequadas (senhas fracas, serviços desnecessários)</li>
+                            <li>Falta de segmentação de rede adequada</li>
+                            <li>Controle de acesso insuficiente (ausência de MFA, privilégios excessivos)</li>
+                            <li>Falta de hardening do sistema</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #d1ecf1; padding: 20px; border-radius: 8px; border: 1px solid #0c5460;">
+                        <h4>Falhas de Resposta</h4>
+                        <p><strong>Por que a resposta não foi mais rápida/eficaz?</strong></p>
+                        <ul>
+                            <li>Processos de escalonamento lentos</li>
+                            <li>Falta de playbooks específicos</li>
+                            <li>Comunicação ineficiente entre equipes</li>
+                            <li>Falta de treinamento em resposta a incidentes</li>
+                            <li>Ferramentas de resposta inadequadas ou desconhecidas</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>DOCUMENTAÇÃO DO INCIDENTE</h3>
+                <p>Registrar a linha do tempo completa, desde o primeiro indicador de comprometimento até a limpeza total do sistema e revogação de acessos.</p>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th width="15%">DATA/HORA</th>
+                            <th width="35%">EVENTO</th>
+                            <th width="35%">AÇÃO TOMADA</th>
+                            <th width="15%">RESPONSÁVEL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>DD/MM HH:MM</td>
+                            <td>Primeiro indicador de comprometimento detectado (ex: login SSH suspeito)</td>
+                            <td>Alert gerado no SIEM, notificação enviada para equipe</td>
+                            <td>Sistema Automático</td>
+                        </tr>
+                        <tr>
+                            <td>DD/MM HH:MM</td>
+                            <td>Validação do incidente pela equipe de segurança</td>
+                            <td>Análise inicial, coleta de evidências preliminares</td>
+                            <td>Analista de Segurança</td>
+                        </tr>
+                        <tr>
+                            <td>DD/MM HH:MM</td>
+                            <td>Confirmação de comprometimento (ex: acesso root não autorizado)</td>
+                            <td>Acionamento do plano de resposta, notificação da gestão</td>
+                            <td>Líder da Equipe</td>
+                        </tr>
+                        <tr>
+                            <td>DD/MM HH:MM</td>
+                            <td>Início das ações de contenção</td>
+                            <td>Isolamento do servidor, bloqueio de acessos</td>
+                            <td>Equipe de Redes</td>
+                        </tr>
+                        <tr>
+                            <td>DD/MM HH:MM</td>
+                            <td>Análise forense completa</td>
+                            <td>Coleta de evidências, identificação de escopo total</td>
+                            <td>Equipe Forense</td>
+                        </tr>
+                        <tr>
+                            <td>DD/MM HH:MM</td>
+                            <td>Erradicação e recuperação</td>
+                            <td>Limpeza do sistema, restauração de serviços</td>
+                            <td>Administradores de Sistema</td>
+                        </tr>
+                        <tr>
+                            <td>DD/MM HH:MM</td>
+                            <td>Fechamento do incidente</td>
+                            <td>Validação final, documentação completa</td>
+                            <td>Gestor de Incidentes</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3>IDENTIFICAÇÃO DE PONTOS DE MELHORIA</h3>
+                <div style="background-color: #e8f5e9; padding: 25px; border-radius: 8px; margin: 20px 0;">
+                    <h5>Áreas para avaliação e melhoria:</h5>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                            <h6>Políticas de Hardening</h6>
+                            <ul>
+                                <li>Estavam atualizadas?</li>
+                                <li>Foram aplicadas consistentemente?</li>
+                                <li>Necessitam revisão?</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                            <h6>Segmentação de Rede</h6>
+                            <ul>
+                                <li>Falhou ao permitir movimentação lateral?</li>
+                                <li>É adequada para os riscos atuais?</li>
+                                <li>Precisa ser redesenhada?</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                            <h6>Tempo de Detecção (Dwell Time)</h6>
+                            <ul>
+                                <li>Foi aceitável dentro das métricas de segurança?</li>
+                                <li>Quais fatores contribuíram para o atraso?</li>
+                                <li>Como reduzir no futuro?</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                            <h6>Capacitação da Equipe</h6>
+                            <ul>
+                                <li>A equipe estava preparada?</li>
+                                <li>Faltou treinamento específico?</li>
+                                <li>Quais habilidades precisam ser desenvolvidas?</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3>ATUALIZAÇÃO DE PROCESSOS</h3>
+                <p>Revisar e atualizar os processos com base nas lições aprendidas:</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 25px 0;">
+                    <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px;">
+                        <h4>Gestão de Vulnerabilidades</h4>
+                        <ul>
+                            <li>Revisar ciclos de patch management</li>
+                            <li>Implementar scanning mais frequente</li>
+                            <li>Estabelecer SLAs para correção de vulnerabilidades críticas</li>
+                            <li>Automatizar processos onde possível</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #f3e5f5; padding: 20px; border-radius: 8px;">
+                        <h4>Controle de Acesso Privilegiado</h4>
+                        <ul>
+                            <li>Revisar políticas de privilégios mínimos</li>
+                            <li>Implementar PAM (Privileged Access Management)</li>
+                            <li>Expandir uso de MFA para todos os acessos administrativos</li>
+                            <li>Auditar regularmente contas privilegiadas</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px;">
+                        <h4>Sistemas de Detecção</h4>
+                        <ul>
+                            <li>Revisar critérios de alertas do SIEM/SOC</li>
+                            <li>Implementar detecção baseada em comportamento</li>
+                            <li>Atualizar assinaturas de IDS/IPS/WAF</li>
+                            <li>Melhorar correlação de eventos</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>REUNIÃO DE LIÇÕES APRENDIDAS</h3>
+                <div style="background-color: #fff3e0; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff9800;">
+                    <p><strong>Após a normalização, é obrigatório reunir os envolvidos</strong> (Segurança, Administradores de Sistemas e Gestão) para uma análise de Lições Aprendidas.</p>
+                    
+                    <h5>Foco da discussão:</h5>
+                    <ul>
+                        <li><strong>O que funcionou bem</strong> na contenção e resposta?</li>
+                        <li><strong>O que atrasou</strong> a erradicação do invasor?</li>
+                        <li><strong>Quais controles de identidade falharam</strong> e por quê?</li>
+                        <li><strong>Como a comunicação</strong> pode ser melhorada?</li>
+                        <li><strong>Quais ferramentas</strong> foram mais/menos úteis?</li>
+                        <li><strong>O que precisamos mudar</strong> nos processos atuais?</li>
+                    </ul>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background-color: white; border-radius: 5px;">
+                        <h6>📋 Template de Ata da Reunião:</h6>
+                        <ul>
+                            <li><strong>Data/Hora:</strong> [Preencher]</li>
+                            <li><strong>Participantes:</strong> [Listar nomes e funções]</li>
+                            <li><strong>Incidente:</strong> [Resumo breve]</li>
+                            <li><strong>Pontos Positivos:</strong> [O que funcionou bem]</li>
+                            <li><strong>Áreas de Melhoria:</strong> [O que precisa ser melhorado]</li>
+                            <li><strong>Ações Corretivas:</strong> [Plano com prazos e responsáveis]</li>
+                            <li><strong>Próximos Passos:</strong> [Seguimento e monitoramento]</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h3>PLANO DE AÇÃO COM PRAZOS DEFINIDOS</h3>
+                <p>As conclusões devem gerar planos de ação com prazos definidos. As melhorias precisam ser incorporadas na revisão das políticas de segurança da informação e no fortalecimento das defesas.</p>
+                
+                <table class="tabela-evidencias">
+                    <thead>
+                        <tr>
+                            <th width="10%">ID</th>
+                            <th width="40%">AÇÃO DE MELHORIA</th>
+                            <th width="20%">RESPONSÁVEL</th>
+                            <th width="15%">PRAZO</th>
+                            <th width="15%">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>PA-001</td>
+                            <td>Implementar MFA obrigatório para todos os acessos SSH administrativos</td>
+                            <td>Equipe de Autenticação</td>
+                            <td>30 dias</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #FF9800; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>PA-002</td>
+                            <td>Atualizar playbook de resposta a incidentes com lições aprendidas</td>
+                            <td>CSIRT</td>
+                            <td>15 dias</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #FF9800; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>PA-003</td>
+                            <td>Implementar segmentação de rede entre servidores de diferentes criticidades</td>
+                            <td>Equipe de Redes</td>
+                            <td>60 dias</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #FF9800; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>PA-004</td>
+                            <td>Realizar treinamento de resposta a incidentes para toda equipe técnica</td>
+                            <td>Gestão de Pessoas</td>
+                            <td>45 dias</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #4CAF50; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">AGENDADO</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>PA-005</td>
+                            <td>Implementar monitoramento de integridade de arquivos (FIM) em servidores críticos</td>
+                            <td>Equipe de Monitoramento</td>
+                            <td>30 dias</td>
+                            <td style="text-align: center;">
+                                <span style="background-color: #FF9800; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;">PENDENTE</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3>CONFORMIDADE NORMATIVA</h3>
+                <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6f42c1;">
+                    <p>A adoção dos frameworks <strong>ISO/IEC 27001, 27701 (Privacidade)</strong> e as diretrizes do <strong>NIST</strong> constitui uma necessidade estratégica para a Governança de TI da UFRGS.</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                            <h6>ISO/IEC 27001:2022</h6>
+                            <p>Controles de segurança da informação para gestão de privilégios e monitoramento de eventos.</p>
+                        </div>
+                        
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                            <h6>ISO 22301</h6>
+                            <p>Resiliência operacional para garantir continuidade de serviços críticos mesmo após comprometimento.</p>
+                        </div>
+                        
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                            <h6>NIST SP 800-61r2</h6>
+                            <p>Roteiro metodológico para o Time de Resposta a Incidentes (TRI), evitando decisões improvisadas.</p>
+                        </div>
+                        
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd;">
+                            <h6>LGPD</h6>
+                            <p>Mitigação de riscos jurídicos e financeiros relacionados a vazamento de dados pessoais.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3>CONCLUSÃO DO CICLO DE RESPOSTA</h3>
+                <div style="background-color: #d4edda; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; border-left: 4px solid #28a745;">
+                    <h4 style="color: #155724;">✅ FASE PÓS-INCIDENTE CONCLUÍDA QUANDO:</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+                        <div>
+                            <div style="font-size: 2.5em;">📋</div>
+                            <p>Relatório completo do incidente foi elaborado</p>
+                        </div>
+                        <div>
+                            <div style="font-size: 2.5em;">🎯</div>
+                            <p>Plano de ação com prazos foi estabelecido</p>
+                        </div>
+                        <div>
+                            <div style="font-size: 2.5em;">🔄</div>
+                            <p>Lições aprendidas foram incorporadas aos processos</p>
+                        </div>
+                        <div>
+                            <div style="font-size: 2.5em;">📊</div>
+                            <p>Métricas de melhoria foram definidas</p>
+                        </div>
+                    </div>
+                    <p style="margin-top: 20px; font-style: italic;">
+                        <strong>Resultado final:</strong> A organização deve emergir do incidente mais resiliente e melhor preparada para futuras ameaças.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="nav-bar">
-        <button class="nav-btn c-preparacao" onclick="showPhase('fase1')">1. PREPARAÇÃO</button>
-        <button class="nav-btn c-deteccao" onclick="showPhase('fase2')">2. DETECÇÃO</button>
-        <button class="nav-btn c-contencao" onclick="showPhase('fase3')">3. CONTENÇÃO</button>
-        <button class="nav-btn c-erradicacao" onclick="showPhase('fase4')">4. ERRADICAÇÃO</button>
-        <button class="nav-btn c-recuperacao" onclick="showPhase('fase5')">5. RECUPERAÇÃO</button>
-        <button class="nav-btn c-pos" onclick="showPhase('fase6')">6. PÓS-INCIDENTE</button>
+        <button class="nav-btn c1" onclick="showPhase('fase1')">Preparação</button>
+        <button class="nav-btn c2" onclick="showPhase('fase2')">Detecção</button>
+        <button class="nav-btn c3" onclick="showPhase('fase3')">Análise</button>
+        <button class="nav-btn c4" onclick="showPhase('fase4')">Contenção</button>
+        <button class="nav-btn c5" onclick="showPhase('fase5')">Erradicação</button>
+        <button class="nav-btn c6" onclick="showPhase('fase6')">Recuperação</button>
+        <button class="nav-btn c7" onclick="showPhase('fase7')">Pós-Incidente</button>
     </div>
-    
 
     <script>
+        // Variável para controlar a fase atual
+        let currentPhase = 'principal';
+
         function showPhase(id) {
+            // Esconder todas as fases
             document.querySelectorAll('.content-card').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.extra-info').forEach(i => i.style.display = 'none');
+            
+            // Mostrar a fase selecionada
             document.getElementById(id).classList.add('active');
-            document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+            
+            // Mostrar botão de voltar (exceto se for principal)
+            const backBtn = document.getElementById('backButton');
+            if (id !== 'principal') {
+                backBtn.classList.add('show');
+                currentPhase = id;
+            } else {
+                backBtn.classList.remove('show');
+            }
+            
+            // Fechar dropdown PDF se aberto
+            closePDFMenu();
+            
+            // Scroll para o topo
+            document.querySelector('.viewport').scrollTop = 0;
         }
+
+        function showPrincipal() {
+            showPhase('principal');
+        }
+
         function toggleDetails(id) {
             const el = document.getElementById(id);
             el.style.display = (el.style.display === 'block') ? 'none' : 'block';
         }
-        function toggleMenu() {
-            const m = document.getElementById("sideMenu");
-            m.style.width = (m.style.width === "280px") ? "0" : "280px";
+
+        function toggleOSI() {
+            const modal = document.getElementById("osiModal");
+            modal.style.display = (modal.style.display === "flex") ? "none" : "flex";
         }
+
+        // Menu Hamburguer para PDF
+        function togglePDFMenu() {
+            const dropdown = document.getElementById("pdfDropdown");
+            dropdown.classList.toggle("show");
+        }
+
+        function closePDFMenu() {
+            document.getElementById("pdfDropdown").classList.remove("show");
+        }
+
+        // Fechar menu PDF ao clicar fora
+        window.onclick = function(event) {
+            if (!event.target.matches('.pdf-toggle') && !event.target.closest('.pdf-toggle')) {
+                closePDFMenu();
+            }
+        }
+
+        // Função para gerar e baixar PDF de cada fase
+        function downloadPDF(fase) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Mapear nomes das fases
+            const faseNomes = {
+                'fase1': 'Preparação',
+                'fase2': 'Detecção',
+                'fase3': 'Análise',
+                'fase4': 'Contenção',
+                'fase5': 'Erradicação',
+                'fase6': 'Recuperação',
+                'fase7': 'Pós-Incidente',
+                'completo': 'Guia Completo'
+            };
+            
+            const nomeFase = faseNomes[fase] || fase;
+            
+            // Configurações do documento
+            doc.setFontSize(20);
+            doc.setTextColor(0, 0, 128);
+            doc.text('Tratamento de Incidentes - Comprometimento de Servidores', 20, 20);
+            
+            doc.setFontSize(16);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Fase: ${nomeFase}`, 20, 35);
+            
+            doc.setFontSize(12);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Universidade Federal do Rio Grande do Sul (UFRGS)`, 20, 45);
+            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 52);
+            
+            // Conteúdo específico de cada fase
+            let conteudo = [];
+            
+            if (fase === 'completo') {
+                conteudo = [
+                    'GUIA COMPLETO DE RESPOSTA A INCIDENTES - COMPROMETIMENTO DE SERVIDORES',
+                    '',
+                    'FASE 1: PREPARAÇÃO',
+                    '- Implementação de EDR/Antivírus',
+                    '- Gestão de vulnerabilidades',
+                    '- Controle de acesso e MFA',
+                    '- Backups imutáveis',
+                    '- Hardening de sistemas',
+                    '- Plano de resposta a incidentes',
+                    '',
+                    'FASE 2: DETECÇÃO',
+                    '- Sinais de alerta (IoC)',
+                    '- Logins atípicos',
+                    '- Alteração de arquivos críticos',
+                    '- Consumo anômalo de recursos',
+                    '- Novas conexões suspeitas',
+                    '- Processos desconhecidos',
+                    '',
+                    'FASE 3: ANÁLISE',
+                    '- Coleta de evidências forenses',
+                    '- Análise de memória RAM',
+                    '- Timeline do sistema de arquivos',
+                    '- Rastreamento de movimentação lateral',
+                    '- Mapeamento MITRE ATT&CK',
+                    '- Determinação do escopo',
+                    '',
+                    'FASE 4: CONTENÇÃO',
+                    '- Classificação por criticidade',
+                    '- Estratégias de isolamento',
+                    '- Preservação de evidências voláteis',
+                    '- Proteção de servidores adjacentes',
+                    '- Comunicação durante o incidente',
+                    '',
+                    'FASE 5: ERRADICAÇÃO',
+                    '- Remoção de web shells e backdoors',
+                    '- Encerramento de processos maliciosos',
+                    '- Expurgo de contas e chaves',
+                    '- Correção de vulnerabilidades',
+                    '- Implementação de MFA',
+                    '',
+                    'FASE 6: RECUPERAÇÃO',
+                    '- Sanitização de backups',
+                    '- Reconfiguração de acessos',
+                    '- Configuração de alertas de integridade',
+                    '- Testes de validação pós-comprometimento',
+                    '',
+                    'FASE 7: PÓS-INCIDENTE',
+                    '- Análise de causa raiz',
+                    '- Documentação do incidente',
+                    '- Identificação de pontos de melhoria',
+                    '- Atualização de processos',
+                    '- Reunião de lições aprendidas',
+                    '- Plano de ação com prazos',
+                    '- Conformidade normativa'
+                ];
+            } else {
+                // Conteúdo específico para cada fase
+                const conteudosFase = {
+                    'fase1': [
+                        'FASE 1: PREPARAÇÃO',
+                        '',
+                        'Foco no hardening dos ativos e redução da superfície de ataque.',
+                        '',
+                        'PRINCIPAIS AÇÕES:',
+                        '1. Implementação de EDR/Antivírus',
+                        '2. Gestão de Vulnerabilidades',
+                        '3. Controle de Acesso e MFA',
+                        '4. Backups Imutáveis',
+                        '5. Hardening de Sistemas',
+                        '6. Plano de Resposta a Incidentes',
+                        '',
+                        'OBJETIVO: Garantir integridade e confidencialidade dos dados críticos da UFRGS.'
+                    ],
+                    'fase2': [
+                        'FASE 2: DETECÇÃO',
+                        '',
+                        'Identificação de indicadores de comprometimento (IoC).',
+                        '',
+                        'SINAIS DE ALERTA:',
+                        '- Logins Atípicos',
+                        '- Alteração de Arquivos Críticos',
+                        '- Consumo de Recursos Anômalo',
+                        '- Novas Conexões Suspeitas',
+                        '- Processos Desconhecidos',
+                        '',
+                        'FERAMENTAS:',
+                        '- SIEM (Security Information and Event Management)',
+                        '- EDR (Endpoint Detection and Response)',
+                        '- IDS/IPS (Intrusion Detection/Prevention)',
+                        '- WAF (Web Application Firewall)'
+                    ],
+                    'fase3': [
+                        'FASE 3: ANÁLISE',
+                        '',
+                        'Investigação minuciosa para determinar profundidade da invasão.',
+                        '',
+                        'EVIDÊNCIAS PRIORITÁRIAS:',
+                        '1. Logs de acesso Web e SO',
+                        '2. Registros de conexões internas',
+                        '3. Tarefas agendadas (Cron)',
+                        '4. Logs de firewall e tráfego',
+                        '5. Imagem forense do disco',
+                        '',
+                        'TÉCNICAS FORENSES:',
+                        '- Análise de memória RAM',
+                        '- Timeline do sistema de arquivos',
+                        '- Rastreamento de movimentação lateral'
+                    ],
+                    'fase4': [
+                        'FASE 4: CONTENÇÃO',
+                        '',
+                        'Interrupção do ataque e prevenção de danos adicionais.',
+                        '',
+                        'CLASSIFICAÇÃO POR CRITICIDADE:',
+                        '1. Crítico - Imediato (minutos)',
+                        '2. Alto - Até 30 minutos',
+                        '3. Médio - Até 2 horas',
+                        '4. Baixo - Até 4 horas',
+                        '5. Monitoramento - Até 8 horas',
+                        '',
+                        'ESTRATÉGIAS DE ISOLAMENTO:',
+                        '- Isolamento Lógico (VLAN/ACL)',
+                        '- Isolamento Físico',
+                        '- Isolamento de Aplicação'
+                    ],
+                    'fase5': [
+                        'FASE 5: ERRADICAÇÃO',
+                        '',
+                        'Eliminação completa das causas raiz do ataque.',
+                        '',
+                        'ELIMINAÇÃO DE PONTOS DE EXPOSIÇÃO:',
+                        '1. Remover Web Shells e Backdoors',
+                        '2. Encerrar Processos Maliciosos',
+                        '3. Expurgar Contas e Chaves',
+                        '',
+                        'CORREÇÃO E HARDENING:',
+                        '- Aplicação de patches de segurança',
+                        '- Reset de credenciais comprometidas',
+                        '- Reforço de configurações',
+                        '- Implementação de MFA'
+                    ],
+                    'fase6': [
+                        'FASE 6: RECUPERAÇÃO',
+                        '',
+                        'Restauração segura dos serviços e normalização das operações.',
+                        '',
+                        'PROCEDIMENTOS DE RECUPERAÇÃO:',
+                        '1. Sanitização de Backups',
+                        '2. Reconfiguração de Acessos',
+                        '3. Configuração de Alertas de Integridade',
+                        '',
+                        'TESTES DE VALIDAÇÃO:',
+                        '- Scan de vulnerabilidade',
+                        '- Integridade de arquivos',
+                        '- Auditoria de contas',
+                        '- Teste de invasão pontual'
+                    ],
+                    'fase7': [
+                        'FASE 7: PÓS-INCIDENTE',
+                        '',
+                        'Aprendizado e melhoria contínua.',
+                        '',
+                        'ANÁLISE DE CAUSA RAIZ:',
+                        '- Por que as ferramentas não detectaram?',
+                        '- Por que as defesas preventivas falharam?',
+                        '- Por que a resposta não foi mais eficaz?',
+                        '',
+                        'DOCUMENTAÇÃO:',
+                        '- Linha do tempo completa',
+                        '- Evidências coletadas',
+                        '- Ações tomadas',
+                        '- Lições aprendidas',
+                        '',
+                        'PLANO DE AÇÃO:',
+                        '- Ações de melhoria',
+                        '- Responsáveis',
+                        '- Prazos definidos',
+                        '- Métricas de acompanhamento'
+                    ]
+                };
+                
+                conteudo = conteudosFase[fase] || ['Conteúdo não disponível para esta fase.'];
+            }
+            
+            // Adicionar conteúdo ao PDF
+            let yPos = 65;
+            doc.setFontSize(11);
+            doc.setTextColor(0, 0, 0);
+            
+            conteudo.forEach((linha, index) => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                if (linha.includes('FASE') || linha.includes('PRINCIPAIS') || linha.includes('SINAIS') || 
+                    linha.includes('EVIDÊNCIAS') || linha.includes('TÉCNICAS') || linha.includes('CLASSIFICAÇÃO') || 
+                    linha.includes('ESTRATÉGIAS') || linha.includes('ELIMINAÇÃO') || linha.includes('CORREÇÃO') || 
+                    linha.includes('TESTES') || linha.includes('ANÁLISE') || linha.includes('DOCUMENTAÇÃO') || 
+                    linha.includes('PLANO') || linha.includes('FERAMENTAS') || linha.includes('OBJETIVO') || 
+                    linha.includes('PROCEDIMENTOS')) {
+                    doc.setFont(undefined, 'bold');
+                } else {
+                    doc.setFont(undefined, 'normal');
+                }
+                
+                doc.text(linha, 20, yPos);
+                yPos += 8;
+            });
+            
+            // Rodapé
+            doc.setFontSize(10);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Centro de Processamento de Dados (CPD) - UFRGS', 105, 285, null, null, 'center');
+            
+            // Salvar o PDF
+            const nomeArquivo = `Comprometimento_Servidores_${nomeFase.replace(/\s+/g, '_')}_UFRGS.pdf`;
+            doc.save(nomeArquivo);
+            
+            // Fechar menu
+            closePDFMenu();
+        }
+
+        // Função para gerar relatório completo do incidente
+        function gerarRelatorioIncidente() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Cabeçalho
+            doc.setFontSize(22);
+            doc.setTextColor(0, 0, 128);
+            doc.text('RELATÓRIO DE INCIDENTE DE SEGURANÇA', 105, 20, null, null, 'center');
+            doc.text('COMPROMETIMENTO DE SERVIDOR', 105, 30, null, null, 'center');
+            
+            doc.setFontSize(14);
+            doc.setTextColor(0, 0, 0);
+            doc.text('UNIVERSIDADE FEDERAL DO RIO GRANDE DO SUL', 105, 45, null, null, 'center');
+            
+            doc.setFontSize(12);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Centro de Processamento de Dados (CPD)', 105, 55, null, null, 'center');
+            doc.text(`Data do Relatório: ${new Date().toLocaleDateString('pt-BR')}`, 105, 62, null, null, 'center');
+            
+            // Linha divisória
+            doc.setDrawColor(200, 200, 200);
+            doc.line(20, 70, 190, 70);
+            
+            let yPos = 80;
+            
+            // Resumo Executivo
+            doc.setFontSize(16);
+            doc.setTextColor(0, 0, 0);
+            doc.text('RESUMO EXECUTIVO', 20, yPos);
+            yPos += 10;
+            
+            doc.setFontSize(11);
+            const resumo = [
+                'Este relatório documenta o incidente de comprometimento de servidor ocorrido na',
+                'infraestrutura de TI da UFRGS. O incidente foi detectado através de [MÉTODO DE DETECÇÃO]',
+                'e resultou em [IMPACTO RESUMIDO]. A equipe de segurança respondeu conforme os',
+                'procedimentos estabelecidos no playbook de resposta a incidentes, contendo o',
+                'comprometimento em [TEMPO DE CONTENÇÃO] e restaurando os serviços em [TEMPO DE RECUPERAÇÃO].',
+                '',
+                'As lições aprendidas deste incidente estão sendo incorporadas aos processos de',
+                'segurança para fortalecer a postura defensiva da universidade contra futuros ataques.'
+            ];
+            
+            resumo.forEach(linha => {
+                if (linha) {
+                    doc.text(linha, 20, yPos);
+                    yPos += 7;
+                } else {
+                    yPos += 4;
+                }
+            });
+            
+            yPos += 10;
+            
+            // Cronologia
+            doc.addPage();
+            yPos = 20;
+            
+            doc.setFontSize(16);
+            doc.text('CRONOLOGIA DETALHADA', 20, yPos);
+            yPos += 10;
+            
+            // Adicionar mais conteúdo conforme necessário...
+            
+            // Finalizar e salvar
+            const nomeArquivo = `Relatorio_Incidente_Comprometimento_Servidor_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(nomeArquivo);
+            
+            alert('Relatório de incidente gerado com sucesso!');
+        }
+
+        // Mostrar fase ao carregar a página
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar se há uma fase específica na URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const fase = urlParams.get('fase');
+            if (fase && document.getElementById(fase)) {
+                showPhase(fase);
+            }
+        });
     </script>
 </body>
 </html>
